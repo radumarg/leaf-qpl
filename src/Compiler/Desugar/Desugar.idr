@@ -20,24 +20,26 @@ import Frontend.Syntax.Type
 desugarAstNode : {a : Type} -> AstNode SurfaceAstPhase a -> AstNode CanonicalAstPhase a
 desugarAstNode (MkAstNode docInfo metadata value) = canonicalAstNode docInfo Written value
 
-desugarAttribute : String -> Nat -> SurfaceAttribute -> CanonicalAttribute
-desugarAttribute defaultArgName id (MkAstNode attributeInfo metadata (MkAttributeNode name arguments)) =
-  canonicalAstNode attributeInfo Written $
-    MkAttributeNode
-      (desugarAstNode name)
-      (desugarArguments arguments)
+desugarAttribute : String -> Nat -> SurfaceAttribute -> (CanonicalAttribute, Nat)
+desugarAttribute defaultArgName nextId (MkAstNode attributeInfo metadata (MkAttributeNode name arguments)) =
+  let (desugaredArguments, followingId) = desugarArguments arguments
+      attribute = canonicalAstNode attributeInfo Written $
+        MkAttributeNode
+          (desugarAstNode name)
+          desugaredArguments
+  in (attribute, followingId)
   where
     argInfo : AstInfo
-    argInfo = incrementedAstInfo name id
+    argInfo = incrementedAstInfo name nextId
     defaultArg : Maybe (List (AttributeArgument CanonicalAstPhase))
     defaultArg = Just [canonicalAstNode argInfo InferredAttributeArgument (AttributeArgumentStringLit ("\"" ++ defaultArgName ++ "\""))]
-    desugarArguments : Maybe (List(AttributeArgument SurfaceAstPhase)) -> Maybe (List (AttributeArgument CanonicalAstPhase))
-    desugarArguments (Just args) = Just ((map desugarAstNode) args)
+    desugarArguments : Maybe (List(AttributeArgument SurfaceAstPhase)) -> (Maybe (List (AttributeArgument CanonicalAstPhase)), Nat)
+    desugarArguments (Just args) = (Just ((map desugarAstNode) args), nextId)
     desugarArguments Nothing =
-      case name.value.nameNodeText of
-        "qasm_gate" => defaultArg
-        "qasm_def"  => defaultArg
-        _           => Nothing
+      case recognizeKnownAttribute name.value.nameNodeText of
+        Just KnownQasmGate => (defaultArg, S nextId)
+        Just KnownQasmDef  => (defaultArg, S nextId)
+        Nothing            => (Nothing, nextId)
 
 desugarPath : SurfacePath -> CanonicalPath
 desugarPath (MkAstNode pathAstInfo metadata (MkPathNode firstSegment remainingSegments)) =
@@ -370,8 +372,8 @@ desugarItem (MkAstNode itemInfo metadata item) =
             contractClauses
             functionBody
           ) = let
-                functionNameText = functionName.value.nameNodeText
-                (desugaredAttributes, increment) = mapWithId (desugarAttribute functionNameText) 1 functionAttributes
+                functionNameString = functionName.value.nameNodeText
+                (desugaredAttributes, increment) = mapWithId (desugarAttribute functionNameString) 1 functionAttributes
                 (desugaredFunctionEffect, increment) = desugarFunctionEffect functionEffect increment
                 desugaredReturnType = desugarFunctionType returnType increment
               in 

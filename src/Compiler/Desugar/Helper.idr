@@ -10,14 +10,14 @@ export
 mapWithId :
   {a : Type} ->
   {b : Type} ->
-  (fun : Nat -> a -> b) ->
+  (fun : Nat -> a -> (b, Nat)) ->
   (startingId : Nat) ->
   (values : List a) ->
   (List b, Nat)
 mapWithId fun nextId [] = ([], nextId)
 mapWithId fun nextId (x :: xs) =
-  let result = fun nextId x
-      (remaining, finalId) = mapWithId fun (S nextId) xs
+  let (result, afterResultId) = fun nextId x
+      (remaining, finalId) = mapWithId fun afterResultId xs
   in (result :: remaining, finalId)
 
 export
