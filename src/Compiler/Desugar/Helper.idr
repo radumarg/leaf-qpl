@@ -21,7 +21,11 @@ mapWithId fun nextId (x :: xs) =
   in (result :: remaining, finalId)
 
 export
+incrementedAstInfoFrom : AstInfo -> Nat -> AstInfo
+incrementedAstInfoFrom astInfo inc =
+  MkAstInfo (MkNodeId astInfo.nodeId.surfaceId (astInfo.nodeId.desugarId + inc)) astInfo.span
+
+export
 incrementedAstInfo : {0 a : Type} -> AstNode SurfaceAstPhase a -> Nat -> AstInfo
 incrementedAstInfo (MkAstNode astInfo x value) inc =
-  MkAstInfo (MkNodeId astInfo.nodeId.surfaceId (astInfo.nodeId.desugarId + inc)) astInfo.span
-  
+  incrementedAstInfoFrom astInfo inc

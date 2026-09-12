@@ -30,7 +30,7 @@ desugarAttribute defaultArgName nextId (MkAstNode attributeInfo metadata (MkAttr
   in (attribute, followingId)
   where
     argInfo : AstInfo
-    argInfo = incrementedAstInfo name nextId
+    argInfo = incrementedAstInfoFrom attributeInfo nextId
     defaultArg : Maybe (List (AttributeArgument CanonicalAstPhase))
     defaultArg = Just [canonicalAstNode argInfo InferredAttributeArgument (AttributeArgumentStringLit ("\"" ++ defaultArgName ++ "\""))]
     desugarArguments : Maybe (List(AttributeArgument SurfaceAstPhase)) -> (Maybe (List (AttributeArgument CanonicalAstPhase)), Nat)
@@ -91,8 +91,8 @@ desugarPattern (MkAstNode patternInfo _ patternNode) =
               (recur fieldPattern)
 
 mutual
-  desugarExpressionNode : ExpressionNode SurfaceAstPhase -> ExpressionNode CanonicalAstPhase
-  desugarExpressionNode expression =
+  desugarExpressionNode : AstInfo -> ExpressionNode SurfaceAstPhase -> ExpressionNode CanonicalAstPhase
+  desugarExpressionNode expressionInfo expression =
     case expression of
       ExprLiteral literal => ExprLiteral (desugarAstNode literal)
       ExprName name => ExprName (desugarAstNode name)
@@ -114,7 +114,7 @@ mutual
       ExprRange start operator end => ExprRange (map desugarNestedExpression start) (desugarAstNode operator) (map desugarNestedExpression end)
       ExprCast operand target => ExprCast (desugarNestedExpression operand) (desugarType target)
       ExprBlock block => ExprBlock (desugarBlockExpression block)
-      ExprIf ifNode => ExprIf (desugarIfNode ifNode)
+      ExprIf ifNode => ExprIf (desugarIfNode expressionInfo ifNode)
       ExprQIf ifNode => assert_total $ idris_crash "Desugar.idr: desugarExpressionNode: ExprQIf not implemented"
       ExprSIf ifNode => assert_total $ idris_crash "Desugar.idr: desugarExpressionNode: ExprSIf not implemented"
       ExprMatch matchNode => assert_total $ idris_crash "Desugar.idr: desugarExpressionNode: ExprMatch not implemented"
@@ -141,16 +141,16 @@ mutual
             (map (\statement => desugarStatement (assert_smaller expression statement)) blockStatements) 
             (map desugarNestedExpression finalExpression)
       mutual
-        desugarIfNode : ClassicalIfNode SurfaceAstPhase -> ClassicalIfNode CanonicalAstPhase
-        desugarIfNode ifNode@(MkClassicalIfNode ifCondition ifThenBlock Nothing) = 
+        desugarIfNode : AstInfo -> ClassicalIfNode SurfaceAstPhase -> ClassicalIfNode CanonicalAstPhase
+        desugarIfNode ifExpressionInfo ifNode@(MkClassicalIfNode ifCondition ifThenBlock Nothing) =
           MkClassicalIfNode
             (desugarNestedExpression ifCondition)
             (desugarBlockExpression ifThenBlock)
             (Just $ ElseBlock (canonicalAstNode desugaredElseBlockAstInfo DefaultElseBlock unitBlockNode))
           where
-            desugaredElseBlockAstInfo = incrementedAstInfo ifCondition 1
-            desugaredUnitExpressionAstInfo = incrementedAstInfo ifCondition 2
-            desugaredDefaultUnitValueAstInfo = incrementedAstInfo ifCondition 3
+            desugaredElseBlockAstInfo = incrementedAstInfoFrom ifExpressionInfo 1
+            desugaredUnitExpressionAstInfo = incrementedAstInfoFrom ifExpressionInfo 2
+            desugaredDefaultUnitValueAstInfo = incrementedAstInfoFrom ifExpressionInfo 3
             unitBlockNode : BlockNode CanonicalAstPhase
             unitBlockNode =
               MkBlockNode [] [] $
@@ -159,7 +159,7 @@ mutual
                   DesugaredExpression
                   (ExprLiteral $ canonicalAstNode desugaredDefaultUnitValueAstInfo DefaultUnitValue LiteralUnit)
                 )
-        desugarIfNode ifNode@(MkClassicalIfNode ifCondition ifThenBlock ifElseBranch) =
+        desugarIfNode _ ifNode@(MkClassicalIfNode ifCondition ifThenBlock ifElseBranch) =
           MkClassicalIfNode
             (desugarNestedExpression ifCondition)
             (desugarBlockExpression ifThenBlock)
@@ -170,7 +170,7 @@ mutual
         desugarElseNode ifNode (ElseChainedIf (MkAstNode chainedIfInfo _ chainedIfNode)) =
           ElseChainedIf $
             canonicalAstNode chainedIfInfo Written $
-              desugarIfNode (assert_smaller ifNode chainedIfNode)
+              desugarIfNode chainedIfInfo (assert_smaller ifNode chainedIfNode)
       desugarControlExpressionNode : ControlExpressionNode SurfaceAstPhase -> ControlExpressionNode CanonicalAstPhase
       desugarControlExpressionNode (ControlledCallable controlQubits onBasisRaw controlledCallable) =
         ControlledCallable
@@ -188,7 +188,7 @@ mutual
 
   desugarExpression : SurfaceExpr -> CanonicalExpr
   desugarExpression (MkAstNode expressionInfo metadata expressionNode) =
-    canonicalAstNode expressionInfo Written (desugarExpressionNode expressionNode)
+    canonicalAstNode expressionInfo Written (desugarExpressionNode expressionInfo expressionNode)
 
   desugarType : Ty SurfaceAstPhase (Expr SurfaceAstPhase) -> Ty CanonicalAstPhase (Expr CanonicalAstPhase)
   desugarType (MkAstNode tyAstInfo metadata typeNode) =
@@ -394,10 +394,10 @@ desugarItem (MkAstNode itemInfo metadata item) =
                 (desugarFunctionBody functionBody)
               where
                 desugarFunctionEffect : Maybe (AstNode SurfaceAstPhase FunctionEffect) -> Nat -> (Maybe (AstNode CanonicalAstPhase FunctionEffect), Nat)
-                desugarFunctionEffect Nothing inc = (Just $ canonicalAstNode (incrementedAstInfo functionName inc) InferredDefaultFunctionEffect EffectGeneral, inc + 1)
+                desugarFunctionEffect Nothing inc = (Just $ canonicalAstNode (incrementedAstInfoFrom itemInfo inc) InferredDefaultFunctionEffect EffectGeneral, inc + 1)
                 desugarFunctionEffect (Just functionEffectNode) inc = (Just $ desugarAstNode functionEffectNode, inc)
                 desugarFunctionType : Maybe (Ty SurfaceAstPhase (Expr SurfaceAstPhase)) -> Nat -> Maybe (Ty CanonicalAstPhase (Expr CanonicalAstPhase))
-                desugarFunctionType Nothing inc = Just $ canonicalAstNode (incrementedAstInfo functionName inc) InferredDefaultFunctionReturnType TyUnit
+                desugarFunctionType Nothing inc = Just $ canonicalAstNode (incrementedAstInfoFrom itemInfo inc) InferredDefaultFunctionReturnType TyUnit
                 desugarFunctionType (Just functionTypeNode) _ = Just $ desugarType functionTypeNode
 
 export
