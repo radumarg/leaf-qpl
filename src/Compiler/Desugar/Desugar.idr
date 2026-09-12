@@ -146,15 +146,18 @@ mutual
           MkClassicalIfNode
             (desugarNestedExpression ifCondition)
             (desugarBlockExpression ifThenBlock)
-            (Just $ ElseBlock (canonicalAstNode ifCondition.astInfo DefaultElseBlock unitBlockNode))
+            (Just $ ElseBlock (canonicalAstNode desugaredElseBlockAstInfo DefaultElseBlock unitBlockNode))
           where
+            desugaredElseBlockAstInfo = incrementedAstInfo ifCondition 1
+            desugaredUnitExpressionAstInfo = incrementedAstInfo ifCondition 2
+            desugaredDefaultUnitValueAstInfo = incrementedAstInfo ifCondition 3
             unitBlockNode : BlockNode CanonicalAstPhase
             unitBlockNode =
               MkBlockNode [] [] $
                 Just (canonicalAstNode 
-                  ifCondition.astInfo 
+                  desugaredUnitExpressionAstInfo
                   DesugaredExpression
-                  (ExprLiteral $ canonicalAstNode ifCondition.astInfo DefaultUnitValue LiteralUnit)
+                  (ExprLiteral $ canonicalAstNode desugaredDefaultUnitValueAstInfo DefaultUnitValue LiteralUnit)
                 )
         desugarIfNode ifNode@(MkClassicalIfNode ifCondition ifThenBlock ifElseBranch) =
           MkClassicalIfNode

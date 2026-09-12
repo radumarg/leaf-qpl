@@ -26,6 +26,10 @@ runDesugaringTests = runTests $ Test.do
     desugarAndPrettyPrint "fn add(x: i32) -> i32 { x + 1 }"
       `shouldBe` Just "general fn add(x: i32) -> i32 { (x + 1) }"
 
+  test "missing classical else is filled in with a unit block" $
+    desugarAndPrettyPrint "fn f() { if ready {} }"
+      `shouldBe` Just "general fn f() -> () { if ready { } else { () } }"
+
   test "const declarations desugar unchanged" $
     desugarAndPrettyPrint "const N: i64 = 4;"
       `shouldBe` Just "const N: i64 = 4;"
