@@ -2,7 +2,7 @@
 // Elementary implementation of Deutsch-Jozsa algorithm
 //
 // The standard extension of Leaf code files should be `.lf`
-// We use `.rs` here for syntax higlighting purposes only.
+// We use `.rs` here for syntax highlighting purposes only.
 //////////////////////////////////////////////////////////////
 
 

@@ -2,7 +2,7 @@
 // Even more compact implementation of Deutsch-Jozsa algorithm
 //
 // The standard extension of Leaf code files should be `.lf`
-// We use `.rs` here for syntax higlighting purposes only.
+// We use `.rs` here for syntax highlighting purposes only.
 ///////////////////////////////////////////////////////////////
 
 unitary fn balanced_oracle(qs: [qubit; 4], ancilla: qubit) -> ([qubit; 4], qubit) {

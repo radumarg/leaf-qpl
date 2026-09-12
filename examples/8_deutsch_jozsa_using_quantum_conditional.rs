@@ -2,7 +2,7 @@
 // Deutsch-Jozsa implementation using quantum conditional statement
 //
 // The standard extension of Leaf code files should be `.lf`
-// We use `.rs` here for syntax higlighting purposes only.
+// We use `.rs` here for syntax highlighting purposes only.
 /////////////////////////////////////////////////////////////////////
 
 unitary fn prepare_minus(q: qubit) -> qubit {

@@ -2,7 +2,7 @@
 // Implementation of Deutsch's algorithm in Leaf.
 //
 // The standard extension of Leaf code files should be `.lf`
-// We use `.rs` here for syntax higlighting purposes only.
+// We use `.rs` here for syntax highlighting purposes only.
 //////////////////////////////////////////////////////////////
 
 unitary fn balanced_oracle(
