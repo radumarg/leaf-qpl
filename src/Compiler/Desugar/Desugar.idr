@@ -327,7 +327,8 @@ mutual
           StatementExpression (desugarExpression statementExpression)
       where
         inferredLinearQualifier : CanonicalAstNode QuantumStorageQualifier
-        inferredLinearQualifier = canonicalAstNode statementAstInfo InferredDefaultQubitQualifier QualifierLinear
+        inferredLinearQualifier = let linearAstInfo = incrementedAstInfo statementAstInfo 1 in
+                                    canonicalAstNode linearAstInfo InferredDefaultQubitQualifier QualifierLinear
 
         desugarLetQualifiers : Maybe SurfaceTy -> List (AstNode SurfaceAstPhase QuantumStorageQualifier) -> List (AstNode CanonicalAstPhase QuantumStorageQualifier)
         desugarLetQualifiers typeAnnotation [] = if isQubitLikeType typeAnnotation then [inferredLinearQualifier] else []
