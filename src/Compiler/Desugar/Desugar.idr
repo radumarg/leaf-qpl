@@ -15,11 +15,14 @@ import Frontend.Syntax.Operator
 import Frontend.Syntax.Pattern
 import Frontend.Syntax.Type
 
+
 %default total
 
 desugarAstNode : {a : Type} -> AstNode SurfaceAstPhase a -> AstNode CanonicalAstPhase a
 desugarAstNode (MkAstNode docInfo metadata value) = canonicalAstNode docInfo Written value
 
+||| If the attribute is missing argument(s), the name of the function is set as attrribute argument.
+||| Unsupported attributes names are ignored, meaning no desugaring is performed for those.
 desugarAttribute : String -> Nat -> SurfaceAttribute -> (CanonicalAttribute, Nat)
 desugarAttribute defaultArgName nextId (MkAstNode attributeInfo metadata (MkAttributeNode name arguments)) =
   let (desugaredArguments, followingId) = desugarArguments arguments
@@ -30,7 +33,7 @@ desugarAttribute defaultArgName nextId (MkAstNode attributeInfo metadata (MkAttr
   in (attribute, followingId)
   where
     argInfo : AstInfo
-    argInfo = incrementedAstInfoFrom attributeInfo nextId
+    argInfo = incrementedAstInfo attributeInfo nextId
     defaultArg : Maybe (List (AttributeArgument CanonicalAstPhase))
     defaultArg = Just [canonicalAstNode argInfo InferredAttributeArgument (AttributeArgumentStringLit ("\"" ++ defaultArgName ++ "\""))]
     desugarArguments : Maybe (List(AttributeArgument SurfaceAstPhase)) -> (Maybe (List (AttributeArgument CanonicalAstPhase)), Nat)
@@ -148,9 +151,9 @@ mutual
             (desugarBlockExpression ifThenBlock)
             (Just $ ElseBlock (canonicalAstNode desugaredElseBlockAstInfo DefaultElseBlock unitBlockNode))
           where
-            desugaredElseBlockAstInfo = incrementedAstInfoFrom ifExpressionInfo 1
-            desugaredUnitExpressionAstInfo = incrementedAstInfoFrom ifExpressionInfo 2
-            desugaredDefaultUnitValueAstInfo = incrementedAstInfoFrom ifExpressionInfo 3
+            desugaredElseBlockAstInfo = incrementedAstInfo ifExpressionInfo 1
+            desugaredUnitExpressionAstInfo = incrementedAstInfo ifExpressionInfo 2
+            desugaredDefaultUnitValueAstInfo = incrementedAstInfo ifExpressionInfo 3
             unitBlockNode : BlockNode CanonicalAstPhase
             unitBlockNode =
               MkBlockNode [] [] $
@@ -303,6 +306,7 @@ mutual
             (desugarExpression targetObject)
             tupleIndexRawText
 
+  ||| the default "linear" qubit qualifier is added if no qubit qualifier is present
   desugarStatement : Statement SurfaceAstPhase -> Statement CanonicalAstPhase
   desugarStatement (MkAstNode statementAstInfo metadata statementNode) =
     canonicalAstNode statementAstInfo Written $
@@ -310,7 +314,7 @@ mutual
         StatementLet (MkLetBindingNode qualifiers pattern typeAnnotation initializer) =>
           StatementLet $
             MkLetBindingNode
-              (map desugarAstNode qualifiers)
+              (desugarLetQualifiers typeAnnotation qualifiers)
               (desugarPattern pattern)
               (map (\ty => desugarType (assert_smaller statementNode ty)) typeAnnotation)
               (map (\init => desugarLetInitializer (assert_smaller statementNode init)) initializer)
@@ -324,6 +328,16 @@ mutual
           StatementSemiExpression (desugarExpression statementExpression)
         StatementExpression statementExpression =>
           StatementExpression (desugarExpression statementExpression)
+      where
+        inferredLinearQualifier : CanonicalAstNode QuantumStorageQualifier
+        inferredLinearQualifier = canonicalAstNode statementAstInfo InferredDefaultQubitQualifier QualifierLinear
+
+        desugarLetQualifiers : Maybe SurfaceTy -> List (AstNode SurfaceAstPhase QuantumStorageQualifier) -> List (AstNode CanonicalAstPhase QuantumStorageQualifier)
+        desugarLetQualifiers typeAnnotation [] = if isQubitLikeType typeAnnotation then [inferredLinearQualifier] else []
+        desugarLetQualifiers typeAnnotation [scratchQualifier@(MkAstNode _ _ QualifierScratch)] =
+          let scratch = desugarAstNode scratchQualifier in
+            if isQubitLikeType typeAnnotation then [scratch, inferredLinearQualifier] else [scratch]
+        desugarLetQualifiers _ qualifiers = map desugarAstNode qualifiers
  
 desugarFunctionBody : Block SurfaceAstPhase -> Block CanonicalAstPhase
 desugarFunctionBody (MkAstNode functionBodyAstInfo metadata (MkBlockNode blockInnerDocs blockStatements finalExpression)) =
@@ -360,6 +374,9 @@ desugarItem (MkAstNode itemInfo metadata item) =
                 (desugarAstNode constName)
                 (desugarType constType)
                 (desugarExpression constValue)
+      -- if function effect is missing, desugaring adds the default "general" function effect
+      -- if return type is missing, the default "unit" return type is added to function declaration
+      -- if function does not return anything, desugaring chnages function body to return the "unit" data
       desugarFunctionDeclaration : FunctionDeclarationNode SurfaceAstPhase -> FunctionDeclarationNode CanonicalAstPhase
       desugarFunctionDeclaration
           (MkFunctionDeclarationNode
@@ -394,10 +411,10 @@ desugarItem (MkAstNode itemInfo metadata item) =
                 (desugarFunctionBody functionBody)
               where
                 desugarFunctionEffect : Maybe (AstNode SurfaceAstPhase FunctionEffect) -> Nat -> (Maybe (AstNode CanonicalAstPhase FunctionEffect), Nat)
-                desugarFunctionEffect Nothing inc = (Just $ canonicalAstNode (incrementedAstInfoFrom itemInfo inc) InferredDefaultFunctionEffect EffectGeneral, inc + 1)
+                desugarFunctionEffect Nothing inc = (Just $ canonicalAstNode (incrementedAstInfo itemInfo inc) InferredDefaultFunctionEffect EffectGeneral, inc + 1)
                 desugarFunctionEffect (Just functionEffectNode) inc = (Just $ desugarAstNode functionEffectNode, inc)
                 desugarFunctionType : Maybe (Ty SurfaceAstPhase (Expr SurfaceAstPhase)) -> Nat -> Maybe (Ty CanonicalAstPhase (Expr CanonicalAstPhase))
-                desugarFunctionType Nothing inc = Just $ canonicalAstNode (incrementedAstInfoFrom itemInfo inc) InferredDefaultFunctionReturnType TyUnit
+                desugarFunctionType Nothing inc = Just $ canonicalAstNode (incrementedAstInfo itemInfo inc) InferredDefaultFunctionReturnType TyUnit
                 desugarFunctionType (Just functionTypeNode) _ = Just $ desugarType functionTypeNode
 
 export

@@ -18,6 +18,64 @@ runDesugaringTests = runTests $ Test.do
     desugarAndPrettyPrint "fn f() -> i32 { 1 }"
       `shouldBe` Just "general fn f() -> i32 { 1 }"
 
+  test "explicitly typed qubit let binding is linear by default" $
+    desugarAndPrettyPrint "fn allocate() { let q: qubit = qalloc(); }"
+      `shouldBe`
+      Just "general fn allocate() -> () { let linear q: qubit = qalloc(); }"
+
+  test "explicitly typed qubit array let binding is linear by default" $
+    desugarAndPrettyPrint "fn allocate() { let qs: [qubit; 3] = qalloc(3); }"
+      `shouldBe`
+      Just "general fn allocate() -> () { let linear qs: [qubit; 3] = qalloc(3); }"
+
+  test "explicitly typed qubit tuple let binding is linear by default" $
+    desugarAndPrettyPrint
+      "fn allocate() { let qs: (qubit, qubit) = (qalloc(), qalloc()); }"
+      `shouldBe`
+      Just
+        "general fn allocate() -> () { let linear qs: (qubit, qubit) = (qalloc(), qalloc()); }"
+
+  test "mixed tuple containing a qubit is linear by default" $
+    desugarAndPrettyPrint
+      "fn allocate() { let pair: (i32, qubit) = (0, qalloc()); }"
+      `shouldBe`
+      Just
+        "general fn allocate() -> () { let linear pair: (i32, qubit) = (0, qalloc()); }"
+
+  test "parenthesized qubit type is linear by default" $
+    desugarAndPrettyPrint "fn allocate() { let q: ((qubit)) = qalloc(); }"
+      `shouldBe`
+      Just "general fn allocate() -> () { let linear q: qubit = qalloc(); }"
+
+  test "qubit reference let binding is not linear by default" $
+    desugarAndPrettyPrint "fn borrow(q: &qubit) { let qref: &qubit = &q; }"
+      `shouldBe`
+      Just
+        "general fn borrow(q: &qubit) -> () { let qref: &qubit = (&q); }"
+
+  test "classical array let binding is not linear by default" $
+    desugarAndPrettyPrint
+      "fn values() { let values: [i32; 3] = [0, 0, 0]; }"
+      `shouldBe`
+      Just
+        "general fn values() -> () { let values: [i32; 3] = [0, 0, 0]; }"
+
+  test "explicit affine qualifier is preserved for a qubit let binding" $
+    desugarAndPrettyPrint "fn allocate() { let affine q: qubit = qalloc(); }"
+      `shouldBe`
+      Just "general fn allocate() -> () { let affine q: qubit = qalloc(); }"
+
+  test "scratch qubit let binding is linear by default" $
+    desugarAndPrettyPrint "fn allocate() { let scratch q: qubit = qalloc(); }"
+      `shouldBe`
+      Just
+        "general fn allocate() -> () { let scratch linear q: qubit = qalloc(); }"
+
+  test "inferred qubit let binding receives no qualifier during desugaring" $
+    desugarAndPrettyPrint "fn allocate() { let q = qalloc(); }"
+      `shouldBe`
+      Just "general fn allocate() -> () { let q = qalloc(); }"
+
   test "default attribute argument is added if argument is missing" $
     desugarAndPrettyPrint "#[qasm_gate]\ngeneral fn myFun() -> () {}"
       `shouldBe` Just "#[qasm_gate(\"myFun\")]\ngeneral fn myFun() -> () { }"
