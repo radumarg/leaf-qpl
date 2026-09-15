@@ -6,9 +6,9 @@ import Data.String
 import Derive.Finite
 import Syntax.T1
 import Text.ILex
-import Text.ILex.Derive
 import Text.ILex.Interfaces
-import Text.ILex.Stack
+import Text.ILex.State.Derive
+import Text.ILex.State.Regular
 import Text.ParseError
 
 import Frontend.Token
@@ -101,11 +101,11 @@ commentModeToToken OuterBlockDocComment rawText = Just (TokOuterDoc rawText)
 commentModeToToken InnerBlockDocComment rawText = Just (TokInnerDoc rawText)
 
 --------------------------------------------------------------------------------
--- Mutable ilex stack.
+-- Mutable ilex state.
 --
--- The installed Text.ILex.Stack.Stack record already supplies HasBytes,
+-- The installed Text.ILex.State.Regular.State record already supplies HasBytes,
 -- HasStringLits, HasBBErr, and HasStack instances (it derives them via
--- `%runElab derive "Stack" [FullStack]`). `LeafStack` only has to carry what
+-- `%runElab derive "State" [FullState]`). `LeafStack` only has to carry what
 -- that generic record does not already provide: the emitted token buffer and
 -- block-comment depth/mode counters. `commentDepth` counts nested comments
 -- beyond the outermost block comment while in `InBlockComment`.
@@ -117,7 +117,7 @@ record LeafStack where
   commentMode  : CommentMode
 
 0 LeafLexerStack : Type -> Type
-LeafLexerStack = Stack LexerError LeafStack LeafSz
+LeafLexerStack = State LexerError LeafStack LeafSz
 
 initLeafStack : LeafStack
 initLeafStack = MkLeafStack [<] Z NormalBlockComment
@@ -174,8 +174,9 @@ stripSuffixChars suffixChars valueChars =
 --
 -- Rather than re-parsing the already-matched raw text by hand, run it back
 -- through the *strict* regexes from `Frontend.Lexer.Regex` (`integerLiteral`,
--- `floatLiteral`, `normalStringLiteralStrict`, ...) via `Text.ILex.Stack.value`,
--- ilex's own primitive for classifying a whole string against a set of regex
+-- `floatLiteral`, `normalStringLiteralStrict`, ...) via
+-- `Text.ILex.State.Regular.value`, ilex's own primitive for classifying a whole
+-- string against a set of regex
 -- alternatives. Its "done" state has an empty DFA for anything but `Ignore`
 -- alternatives, so any leftover unconsumed input after the first match fails
 -- outright -- this rejects partial/prefix matches for free, with no
@@ -585,7 +586,6 @@ leafLexerEOI lexerState stackValue = T1.do
                         "InBlockComment at end of input without an opening position"))
                     (BB eofPosition eofPosition)))
 
-export
 leafLexer : Lexer LexerError Token
 leafLexer =
   P Initial
@@ -594,3 +594,7 @@ leafLexer =
     noChunk
     (errs [])
     leafLexerEOI
+
+export
+runLeafLexer : String -> Either (BBErr LexerError) (List (ByteBounded Token))
+runLeafLexer = runString leafLexer

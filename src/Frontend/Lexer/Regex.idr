@@ -172,7 +172,8 @@ exponentPart =
 --
 -- These are the actual source of truth for what counts as a well-formed
 -- integer/float literal: `Rules.idr`'s `numberClassifier` runs the already
--- broadly-matched raw text back through these via `Text.ILex.Stack.value`,
+-- broadly-matched raw text back through these via
+-- `Text.ILex.State.Regular.value`,
 -- rather than re-validating it with hand-written `List Char` recursion.
 --------------------------------------------------------------------------------
 binaryIntegerLiteral : RExp True

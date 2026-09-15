@@ -13,7 +13,7 @@ import Frontend.Lexer.Rules
 --------------------------------------------------------------------------------
 -- Translating ilex native errors into Leaf's public LexerError.
 --
--- `runString leafLexer` returns an `Either (BBErr LexerError) ...`, where an
+-- `runLeafLexer` returns an `Either (BBErr LexerError) ...`, where an
 -- `BBErr e` is a byte-bounded `InnerError e`. This module is the single place
 -- where those native ilex failures are translated so `lexFile` exposes only
 -- `Bounded LexerError`.
@@ -89,7 +89,7 @@ public export
 lexFile : String -> Either (Bounded LexerError) (List (Bounded Token))
 lexFile inputString =
   let pm := stringPositionMap (positionMapInput inputString)
-  in case runString leafLexer inputString of
+  in case runLeafLexer inputString of
     Left byteBoundedError =>
       Left (toBounded (map translateInnerLexerError byteBoundedError))
 
