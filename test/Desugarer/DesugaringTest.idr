@@ -84,6 +84,46 @@ runDesugaringTests = runTests $ Test.do
     desugarAndPrettyPrint "fn add(x: i32) -> i32 { x + 1 }"
       `shouldBe` Just "general fn add(x: i32) -> i32 { (x + 1) }"
 
+  test "+= becomes assignment with addition" $
+    desugarAndPrettyPrint "fn assign() { x += 1; }"
+      `shouldBe` Just "general fn assign() -> () { x = (x + 1); }"
+
+  test "-= becomes assignment with subtraction" $
+    desugarAndPrettyPrint "fn assign() { x -= 1; }"
+      `shouldBe` Just "general fn assign() -> () { x = (x - 1); }"
+
+  test "*= becomes assignment with multiplication" $
+    desugarAndPrettyPrint "fn assign() { x *= 2; }"
+      `shouldBe` Just "general fn assign() -> () { x = (x * 2); }"
+
+  test "/= becomes assignment with division" $
+    desugarAndPrettyPrint "fn assign() { x /= 2; }"
+      `shouldBe` Just "general fn assign() -> () { x = (x / 2); }"
+
+  test "%= becomes assignment with remainder" $
+    desugarAndPrettyPrint "fn assign() { x %= 2; }"
+      `shouldBe` Just "general fn assign() -> () { x = (x % 2); }"
+
+  test "&= becomes assignment with bitwise and" $
+    desugarAndPrettyPrint "fn assign() { x &= 3; }"
+      `shouldBe` Just "general fn assign() -> () { x = (x & 3); }"
+
+  test "|= becomes assignment with bitwise or" $
+    desugarAndPrettyPrint "fn assign() { x |= 3; }"
+      `shouldBe` Just "general fn assign() -> () { x = (x | 3); }"
+
+  test "^= becomes assignment with bitwise xor" $
+    desugarAndPrettyPrint "fn assign() { x ^= 3; }"
+      `shouldBe` Just "general fn assign() -> () { x = (x ^ 3); }"
+
+  test "<<= becomes assignment with shift left" $
+    desugarAndPrettyPrint "fn assign() { x <<= 2; }"
+      `shouldBe` Just "general fn assign() -> () { x = (x << 2); }"
+
+  test ">>= becomes assignment with shift right" $
+    desugarAndPrettyPrint "fn assign() { x >>= 2; }"
+      `shouldBe` Just "general fn assign() -> () { x = (x >> 2); }"
+
   test "missing classical else is filled in with a unit block" $
     desugarAndPrettyPrint "fn f() { if ready {} }"
       `shouldBe` Just "general fn f() -> () { if ready { } else { () } }"

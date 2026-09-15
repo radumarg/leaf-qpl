@@ -307,7 +307,9 @@ mutual
             (desugarExpression targetObject)
             tupleIndexRawText
 
-  ||| the default "linear" qubit qualifier is added if no qubit qualifier is present
+  ||| The default "linear" qubit qualifier is added if no qubit qualifier is present
+  ||| Compound assignment statements are desugared to assignment statements: "a += 1;" -> "a = a + 1;"
+  ||| Bug: arr[f()] += 1; should not become: arr[f()] = arr[f()] + 1;
   desugarStatement : Statement SurfaceAstPhase -> Statement CanonicalAstPhase
   desugarStatement (MkAstNode statementAstInfo metadata statementNode) =
     canonicalAstNode statementAstInfo Written $
@@ -338,20 +340,68 @@ mutual
         desugarLetQualifiers _ qualifiers = map desugarAstNode qualifiers
 
         desugarAssignmentStatement : SurfaceAssignmentTarget -> SurfaceAstNode AssignmentOperator -> SurfaceExpr -> StatementNode CanonicalAstPhase
-        desugarAssignmentStatement assignmentTarget assignmentOperator@(MkAstNode _ _ AssignValue) assignmentValue =
-          StatementAssignment $
-            MkAssignmentNode
-              (desugarAssignmentTarget assignmentTarget)
-              (desugarAstNode assignmentOperator)
-              (desugarExpression assignmentValue)
-        desugarAssignmentStatement assignmentTarget (MkAstNode astInfo metadata value) assignmentValue =
-          StatementAssignment $
-            MkAssignmentNode
-              (desugarAssignmentTarget assignmentTarget)
-              (canonicalAstNode assignmentAstInfo DesugaredAssignment AssignValue)
-              (desugarExpression assignmentValue)
-            where
-              assignmentAstInfo = incrementedAstInfo astInfo 1
+        desugarAssignmentStatement assignmentTarget
+            assignmentOperator@(MkAstNode operatorAstInfo _ operator)
+            assignmentValue =
+          case assignmentOperatorToBinary operator of
+            Nothing =>
+              StatementAssignment $
+                MkAssignmentNode
+                  (desugarAssignmentTarget assignmentTarget)
+                  (desugarAstNode assignmentOperator)
+                  (desugarExpression assignmentValue)
+            Just binaryOperator =>
+              StatementAssignment $
+                MkAssignmentNode
+                  (desugarAssignmentTarget assignmentTarget)
+                  (canonicalAstNode
+                    assignmentOperatorAstInfo
+                    DesugaredAssignment
+                    AssignValue)
+                  (canonicalAstNode
+                    binaryExpressionAstInfo
+                    DesugaredAssignment
+                    (ExprBinary
+                      (canonicalAstNode operatorAstInfo DesugaredAssignment binaryOperator)
+                      (desugarAssignmentTargetExpression assignmentTarget)
+                      (desugarExpression assignmentValue)))
+          where
+            assignmentOperatorAstInfo = incrementedAstInfo operatorAstInfo 1
+            binaryExpressionAstInfo = incrementedAstInfo operatorAstInfo 2
+            leftOperandAstInfo = incrementedAstInfo operatorAstInfo 3
+
+            assignmentOperatorToBinary : AssignmentOperator -> Maybe BinaryOperator
+            assignmentOperatorToBinary AssignValue = Nothing
+            assignmentOperatorToBinary AssignAdd = Just BinaryAdd
+            assignmentOperatorToBinary AssignSubtract = Just BinarySubtract
+            assignmentOperatorToBinary AssignMultiply = Just BinaryMultiply
+            assignmentOperatorToBinary AssignDivide = Just BinaryDivide
+            assignmentOperatorToBinary AssignRemainder = Just BinaryRemainder
+            assignmentOperatorToBinary AssignBitAnd = Just BinaryBitAnd
+            assignmentOperatorToBinary AssignBitOr = Just BinaryBitOr
+            assignmentOperatorToBinary AssignBitXor = Just BinaryBitXor
+            assignmentOperatorToBinary AssignShiftLeft = Just BinaryShiftLeft
+            assignmentOperatorToBinary AssignShiftRight = Just BinaryShiftRight
+
+            desugarAssignmentTargetExpression : SurfaceAssignmentTarget -> CanonicalExpr
+            desugarAssignmentTargetExpression (MkAstNode _ _ targetNode) =
+              canonicalAstNode leftOperandAstInfo DesugaredAssignment $
+                case targetNode of
+                  AssignTargetName targetName =>
+                    ExprName (desugarAstNode targetName)
+                  AssignTargetIndex targetObject indexExpression =>
+                    ExprIndex
+                      (desugarExpression targetObject)
+                      (desugarExpression indexExpression)
+                  AssignTargetField targetObject fieldName =>
+                    ExprField
+                      (desugarExpression targetObject)
+                      (desugarAstNode fieldName)
+                  AssignTargetTupleIndex targetObject tupleIndexRawText =>
+                    ExprTupleIndex
+                      (desugarExpression targetObject)
+                      tupleIndexRawText
+
 
 desugarFunctionBody : Block SurfaceAstPhase -> Block CanonicalAstPhase
 desugarFunctionBody (MkAstNode functionBodyAstInfo metadata (MkBlockNode blockInnerDocs blockStatements finalExpression)) =
