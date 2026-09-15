@@ -144,6 +144,7 @@ mutual
             (map (\statement => desugarStatement (assert_smaller expression statement)) blockStatements) 
             (map desugarNestedExpression finalExpression)
       mutual
+        -- in case the else statement branch is missing, desugaring adds a default "else { () }" block
         desugarIfNode : AstInfo -> ClassicalIfNode SurfaceAstPhase -> ClassicalIfNode CanonicalAstPhase
         desugarIfNode ifExpressionInfo ifNode@(MkClassicalIfNode ifCondition ifThenBlock Nothing) =
           MkClassicalIfNode
