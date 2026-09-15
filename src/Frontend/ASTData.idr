@@ -47,6 +47,7 @@ data NodeProvenance
   | DefaultElseBlock
   | DefaultUnitValue
   | DesugaredExpression
+  | DesugaredAssignment
   | InferredAttributeArgument
   | InferredDefaultFunctionEffect
   | InferredDefaultFunctionReturnType
@@ -58,6 +59,7 @@ Show NodeProvenance where
   show DefaultElseBlock = "default empty else block"
   show DefaultUnitValue = "default unit value"
   show DesugaredExpression = "desugared expression"
+  show DesugaredAssignment = "desugared assignment from compound assignment"
   show InferredAttributeArgument = "inferred attribute argument"
   show InferredDefaultFunctionEffect = "inferred default function effect"
   show InferredDefaultFunctionReturnType = "inferred default function return type"

@@ -320,11 +320,7 @@ mutual
               (map (\ty => desugarType (assert_smaller statementNode ty)) typeAnnotation)
               (map (\init => desugarLetInitializer (assert_smaller statementNode init)) initializer)
         StatementAssignment (MkAssignmentNode assignmentTarget assignmentOperator assignmentValue) =>
-          StatementAssignment $
-            MkAssignmentNode
-              (desugarAssignmentTarget assignmentTarget)
-              (desugarAstNode assignmentOperator)
-              (desugarExpression assignmentValue)
+          desugarAssignmentStatement assignmentTarget assignmentOperator assignmentValue
         StatementSemiExpression statementExpression =>
           StatementSemiExpression (desugarExpression statementExpression)
         StatementExpression statementExpression =>
@@ -339,7 +335,23 @@ mutual
           let scratch = desugarAstNode scratchQualifier in
             if isQubitLikeType typeAnnotation then [scratch, inferredLinearQualifier] else [scratch]
         desugarLetQualifiers _ qualifiers = map desugarAstNode qualifiers
- 
+
+        desugarAssignmentStatement : SurfaceAssignmentTarget -> SurfaceAstNode AssignmentOperator -> SurfaceExpr -> StatementNode CanonicalAstPhase
+        desugarAssignmentStatement assignmentTarget assignmentOperator@(MkAstNode _ _ AssignValue) assignmentValue =
+          StatementAssignment $
+            MkAssignmentNode
+              (desugarAssignmentTarget assignmentTarget)
+              (desugarAstNode assignmentOperator)
+              (desugarExpression assignmentValue)
+        desugarAssignmentStatement assignmentTarget (MkAstNode astInfo metadata value) assignmentValue =
+          StatementAssignment $
+            MkAssignmentNode
+              (desugarAssignmentTarget assignmentTarget)
+              (canonicalAstNode assignmentAstInfo DesugaredAssignment AssignValue)
+              (desugarExpression assignmentValue)
+            where
+              assignmentAstInfo = incrementedAstInfo astInfo 1
+
 desugarFunctionBody : Block SurfaceAstPhase -> Block CanonicalAstPhase
 desugarFunctionBody (MkAstNode functionBodyAstInfo metadata (MkBlockNode blockInnerDocs blockStatements finalExpression)) =
   canonicalAstNode functionBodyAstInfo Written $
