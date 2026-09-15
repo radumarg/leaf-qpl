@@ -370,19 +370,6 @@ mutual
             binaryExpressionAstInfo = incrementedAstInfo operatorAstInfo 2
             leftOperandAstInfo = incrementedAstInfo operatorAstInfo 3
 
-            assignmentOperatorToBinary : AssignmentOperator -> Maybe BinaryOperator
-            assignmentOperatorToBinary AssignValue = Nothing
-            assignmentOperatorToBinary AssignAdd = Just BinaryAdd
-            assignmentOperatorToBinary AssignSubtract = Just BinarySubtract
-            assignmentOperatorToBinary AssignMultiply = Just BinaryMultiply
-            assignmentOperatorToBinary AssignDivide = Just BinaryDivide
-            assignmentOperatorToBinary AssignRemainder = Just BinaryRemainder
-            assignmentOperatorToBinary AssignBitAnd = Just BinaryBitAnd
-            assignmentOperatorToBinary AssignBitOr = Just BinaryBitOr
-            assignmentOperatorToBinary AssignBitXor = Just BinaryBitXor
-            assignmentOperatorToBinary AssignShiftLeft = Just BinaryShiftLeft
-            assignmentOperatorToBinary AssignShiftRight = Just BinaryShiftRight
-
             desugarAssignmentTargetExpression : SurfaceAssignmentTarget -> CanonicalExpr
             desugarAssignmentTargetExpression (MkAstNode _ _ targetNode) =
               canonicalAstNode leftOperandAstInfo DesugaredAssignment $

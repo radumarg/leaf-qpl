@@ -5,6 +5,7 @@ import Frontend.ASTData
 import Frontend.ASTPhases
 import Frontend.Syntax.AST
 import Frontend.Syntax.Name
+import Frontend.Syntax.Operator
 import Frontend.Syntax.Type
 import Frontend.Token
 
@@ -51,3 +52,17 @@ isQubitLikeType (Just ty) = isQubitLike ty
         recur : SurfaceTy -> Bool
         recur nestedType =
           isQubitLike (assert_smaller typeNode nestedType)
+
+export
+assignmentOperatorToBinary : AssignmentOperator -> Maybe BinaryOperator
+assignmentOperatorToBinary AssignValue = Nothing
+assignmentOperatorToBinary AssignAdd = Just BinaryAdd
+assignmentOperatorToBinary AssignSubtract = Just BinarySubtract
+assignmentOperatorToBinary AssignMultiply = Just BinaryMultiply
+assignmentOperatorToBinary AssignDivide = Just BinaryDivide
+assignmentOperatorToBinary AssignRemainder = Just BinaryRemainder
+assignmentOperatorToBinary AssignBitAnd = Just BinaryBitAnd
+assignmentOperatorToBinary AssignBitOr = Just BinaryBitOr
+assignmentOperatorToBinary AssignBitXor = Just BinaryBitXor
+assignmentOperatorToBinary AssignShiftLeft = Just BinaryShiftLeft
+assignmentOperatorToBinary AssignShiftRight = Just BinaryShiftRight
