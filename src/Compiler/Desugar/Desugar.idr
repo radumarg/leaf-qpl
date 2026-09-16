@@ -15,6 +15,8 @@ import Frontend.Syntax.Operator
 import Frontend.Syntax.Pattern
 import Frontend.Syntax.Type
 
+--- TODO deusgar bit conditions in typechecked one we know b is not a boolean
+-- if b { fun(&q); } -> if b == 1 { fun(&q); }
 
 %default total
 
@@ -309,7 +311,7 @@ mutual
 
   ||| The default "linear" qubit qualifier is added if no qubit qualifier is present
   ||| Compound assignment statements are desugared to assignment statements: "a += 1;" -> "a = a + 1;"
-  ||| Bug: arr[f()] += 1; should not become: arr[f()] = arr[f()] + 1;
+  ||| TODO: Bug: arr[f()] += 1; should not become: arr[f()] = arr[f()] + 1;
   desugarStatement : Statement SurfaceAstPhase -> Statement CanonicalAstPhase
   desugarStatement (MkAstNode statementAstInfo metadata statementNode) =
     canonicalAstNode statementAstInfo Written $
