@@ -130,7 +130,17 @@ mutual
       ExprFor pattern iterator body => ExprFor (desugarPattern pattern) (desugarNestedExpression iterator) (desugarBlockExpression body)
       ExprBreak value => ExprBreak (map desugarNestedExpression value)
       ExprContinue => ExprContinue
-      ExprReturn value => ExprReturn (map desugarNestedExpression value)
+      ExprReturn Nothing =>
+        ExprReturn $ Just $
+          canonicalAstNode
+            (incrementedAstInfo expressionInfo 1)
+            DesugaredExpression $
+            ExprLiteral $
+              canonicalAstNode
+                (incrementedAstInfo expressionInfo 2)
+                DefaultUnitValue
+                LiteralUnit
+      ExprReturn (Just value) => ExprReturn (Just (desugarNestedExpression value))
       ExprCtrl control => ExprCtrl (desugarControlExpressionNode control)
       ExprAdjoint adjoint => ExprAdjoint (desugarAdjointExpressionNode adjoint)
     where
@@ -391,14 +401,43 @@ mutual
                       (desugarExpression targetObject)
                       tupleIndexRawText
 
-
+||| A final expression is desugared to a return statement. If there is no
+||| final expression, an explicit `return ();` statement is generated.
+||| Also "return 2" is desugared to "return 2;"
+||| Also "(return 2)" is desugared to "return 2;"
 desugarFunctionBody : Block SurfaceAstPhase -> Block CanonicalAstPhase
 desugarFunctionBody (MkAstNode functionBodyAstInfo metadata (MkBlockNode blockInnerDocs blockStatements finalExpression)) =
   canonicalAstNode functionBodyAstInfo Written $
     MkBlockNode
       (map desugarAstNode blockInnerDocs)
-      (map desugarStatement blockStatements)
-      (map desugarExpression finalExpression)
+      (map desugarStatement blockStatements ++ desugarFinalExpression finalExpression)
+      Nothing
+    where
+      desugarFinalExpression : Maybe (AstNode SurfaceAstPhase (ExpressionNode SurfaceAstPhase)) -> List (AstNode CanonicalAstPhase (StatementNode CanonicalAstPhase))
+      desugarFinalExpression Nothing =
+        let statementSemiExpressionInfo = incrementedAstInfo functionBodyAstInfo 1
+            expressionReturnInfo = incrementedAstInfo functionBodyAstInfo 2
+            unitExpressionInfo = incrementedAstInfo functionBodyAstInfo 3
+            unitValueInfo = incrementedAstInfo functionBodyAstInfo 4
+        in
+          [canonicalAstNode statementSemiExpressionInfo DesugaredReturnStatement
+            (StatementSemiExpression $
+              canonicalAstNode expressionReturnInfo DesugaredReturnStatement $
+                ExprReturn $ Just $
+                  canonicalAstNode unitExpressionInfo DesugaredExpression $
+                    ExprLiteral $
+                      canonicalAstNode unitValueInfo DefaultUnitValue LiteralUnit)]
+      desugarFinalExpression (Just finalExpression@(MkAstNode finalExpressionInfo _ _)) =
+        let statementSemiExpressionInfo = { span := finalExpressionInfo.span } (incrementedAstInfo functionBodyAstInfo 1)
+            desugaredFinalExpression = desugarExpression finalExpression
+        in case desugaredFinalExpression.value of
+          ExprReturn _ =>
+            [canonicalAstNode statementSemiExpressionInfo DesugaredReturnStatement (StatementSemiExpression desugaredFinalExpression)]
+          _ =>
+            let expressionReturnInfo = { span := finalExpressionInfo.span } (incrementedAstInfo functionBodyAstInfo 2)
+            in
+              [canonicalAstNode statementSemiExpressionInfo DesugaredReturnStatement
+                (StatementSemiExpression $ canonicalAstNode expressionReturnInfo DesugaredReturnStatement (ExprReturn (Just desugaredFinalExpression)))]
 
 desugarItem : SurfaceItem -> CanonicalItem
 desugarItem (MkAstNode itemInfo metadata item) =

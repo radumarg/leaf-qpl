@@ -48,6 +48,7 @@ data NodeProvenance
   | DefaultUnitValue
   | DesugaredExpression
   | DesugaredAssignment
+  | DesugaredReturnStatement
   | InferredAttributeArgument
   | InferredDefaultFunctionEffect
   | InferredDefaultFunctionReturnType
@@ -60,6 +61,7 @@ Show NodeProvenance where
   show DefaultUnitValue = "default unit value"
   show DesugaredExpression = "desugared expression"
   show DesugaredAssignment = "desugared assignment from compound assignment"
+  show DesugaredReturnStatement = "desugared return statement"
   show InferredAttributeArgument = "inferred attribute argument"
   show InferredDefaultFunctionEffect = "inferred default function effect"
   show InferredDefaultFunctionReturnType = "inferred default function return type"
