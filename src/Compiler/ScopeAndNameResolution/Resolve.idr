@@ -1,6 +1,8 @@
 module Compiler.ScopeAndNameResolution.Resolve
 
+import Compiler.ScopeAndNameResolution.Data
 import Data.List1
+import Data.SortedMap
 import Frontend.ASTData
 import Frontend.ASTPhases
 import Frontend.Syntax.Attribute
@@ -372,11 +374,26 @@ resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) =
                 (resolveFunctionBody functionBody)
 
 
+-- creates a scope for modules, functions, blocks and similar constructs;
+-- records declarations in symbol tables;
+-- assigns a unique SymbolId to each declared entity;
+-- resolves variable, function, type and module names;
+-- handles shadowing;
+-- checks visibility and imports;
+-- detects duplicate declarations;
+-- reports unknown or ambiguous names.
+
 -- ExprParenthesized, PatternParenthesized, TyParenthesized should dissapear
-resolveCanonicalSyntax : CanonicalSourceFile -> ResolvedSourceFile
+resolveCanonicalSyntax : CanonicalSourceFile -> Either ResolutionError ResolvedProgram
 resolveCanonicalSyntax
     (MkAstNode fileInfo (MkProvenanceMetadata provenance) (MkSourceFileNode docs items)) =
-  resolveNode fileInfo (MkProvenanceMetadata provenance) $
-    MkSourceFileNode
-      (map resolveAstNode docs)
-      (map resolveItem items)
+  Right $
+    MkResolvedProgram
+      (resolveNode fileInfo (MkProvenanceMetadata provenance) $
+        MkSourceFileNode
+          (map resolveAstNode docs)
+          (map resolveItem items))
+      (MkScopeId 0)
+      empty
+      empty
+      empty
