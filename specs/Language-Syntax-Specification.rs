@@ -479,7 +479,7 @@ let state = bs"10+-+-001";
 let state = bs"iiiiIIIII";
 
 //////////////////////////////////////////////
-// (12) Syntax for type qualifiers for qubits
+// (12) Syntax for qubit qualifiers
 //////////////////////////////////////////////
 
 // linear qubits: must be consumed exactly once, no copying or implicit discarding allowed (discarding must be explicit via the discard built-in function)
@@ -1195,7 +1195,7 @@ let affine q = weaken(q);
 let linear qs: [qubit; 3] = qalloc(3);
 let affine qs = weaken(qs);
 
-let (q1, q2, q3): (affine qubit, affine qubit, affine qubit) = weaken(q1, q2, q3);
+let linear (q1, q2, q3): (qubit, qubit, qubit) = weaken(q1, q2, q3);
 let (q1, q2, q3) = weaken(q1, q2, q3);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
