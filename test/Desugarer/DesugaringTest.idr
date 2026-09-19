@@ -105,6 +105,25 @@ runDesugaringTests = runTests $ Test.do
     desugarAndPrettyPrint "fn add(x: i32) -> i32 { x + 1 }"
       `shouldBe` Just "general fn add(x: i32) -> i32 { return (x + 1); }"
 
+  test "one control receives the default basis bs\"1\"" $
+    desugarAndPrettyPrint "fn f() { ctrl(q0).apply(H)(q1); }"
+      `shouldBe`
+      Just
+        "general fn f() -> () { ctrl(q0).on(bs\"1\").apply(H)(q1); return (); }"
+
+  test "multiple controls receive one default basis 1 each" $
+    desugarAndPrettyPrint "fn f() { ctrl(q0, q1, q2).apply(H)(q3); }"
+      `shouldBe`
+      Just
+        "general fn f() -> () { ctrl(q0, q1, q2).on(bs\"111\").apply(H)(q3); return (); }"
+
+  test "an explicitly written control basis is preserved" $
+    desugarAndPrettyPrint
+      "fn f() { ctrl(q0, q1).on(bs\"10\").apply(H)(q2); }"
+      `shouldBe`
+      Just
+        "general fn f() -> () { ctrl(q0, q1).on(bs\"10\").apply(H)(q2); return (); }"
+
   test "+= becomes assignment with addition" $
     desugarAndPrettyPrint "fn assign() { x += 1; }"
       `shouldBe` Just "general fn assign() -> () { x = (x + 1); return (); }"

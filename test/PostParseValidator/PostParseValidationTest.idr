@@ -67,6 +67,31 @@ runPostParseValidationTests = runTests $ Test.do
           "in this parameter list"
         ]
 
+  test "a control basis matching the number of controls is accepted" $
+    validationMessages
+      "fn f() {ctrl(q0, q1).on(bs\"10\").apply(H)(q2);}" `shouldBe`
+      Just []
+
+  test "a missing control basis is accepted" $
+    validationMessages
+      "fn f() {ctrl(q0, q1).apply(H)(q2); ctrl(q0) {H(q1);}}" `shouldBe`
+      Just []
+
+  test "a control basis shorter than the callable controls is rejected" $
+    validationMessages
+      "fn f() {ctrl(q0, q1).on(bs\"1\").apply(H)(q2);}" `shouldBe`
+      Just
+        [ "test-fixture.rs:1:25: control basis contains 1 states, but " ++
+          "the control expression has 2 control qubits"
+        ]
+
+  test "a control basis longer than the block controls is rejected" $
+    validationMessages "fn f() {ctrl(q0).on(bs\"10\") {H(q1);}}" `shouldBe`
+      Just
+        [ "test-fixture.rs:1:21: control basis contains 2 states, but " ++
+          "the control expression has 1 control qubits"
+        ]
+
   test "valid contextual forms pass post-parse validation" $
     validationMessages
       "#[qasm_gate]\nfn f(x: &mut i32) {loop {break;} while ready {continue;} return}" `shouldBe`

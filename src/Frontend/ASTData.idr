@@ -80,6 +80,7 @@ data NodeProvenance
   | DesugaredExpression
   | DesugaredAssignment
   | DesugaredReturnStatement
+  | DesugaredCtrlDefaultOnInvocation
   | InferredAttributeArgument
   | InferredDefaultFunctionEffect
   | InferredDefaultFunctionReturnType
@@ -93,6 +94,7 @@ Show NodeProvenance where
   show DesugaredExpression = "desugared expression"
   show DesugaredAssignment = "desugared assignment from compound assignment"
   show DesugaredReturnStatement = "desugared return statement"
+  show DesugaredCtrlDefaultOnInvocation = "desugared control syntax default on(bs\"1..\") invocation"
   show InferredAttributeArgument = "inferred attribute argument"
   show InferredDefaultFunctionEffect = "inferred default function effect"
   show InferredDefaultFunctionReturnType = "inferred default function return type"

@@ -1,6 +1,7 @@
 module Compiler.Desugar.Desugar
 
 import Compiler.Desugar.Helper
+import Data.List
 import Data.List1
 import Frontend.ASTData
 import Frontend.ASTPhases
@@ -141,7 +142,7 @@ mutual
                 DefaultUnitValue
                 LiteralUnit
       ExprReturn (Just value) => ExprReturn (Just (desugarNestedExpression value))
-      ExprCtrl control => ExprCtrl (desugarControlExpressionNode control)
+      ExprCtrl control => ExprCtrl (desugarControlExpressionNode expressionInfo control)
       ExprAdjoint adjoint => ExprAdjoint (desugarAdjointExpressionNode adjoint)
     where
       desugarNestedExpression : SurfaceExpr -> CanonicalExpr
@@ -187,17 +188,29 @@ mutual
           ElseChainedIf $
             canonicalAstNode chainedIfInfo Written $
               desugarIfNode chainedIfInfo (assert_smaller ifNode chainedIfNode)
-      desugarControlExpressionNode : ControlExpressionNode SurfaceAstPhase -> ControlExpressionNode CanonicalAstPhase
-      desugarControlExpressionNode (ControlledCallable controlQubits onBasisRaw controlledCallable) =
+
+      -- Desugar control invocation by adding on() invocation to ctrl() if missing,
+      -- in order to obtain the default control syntax: ctrl(&q0, &q1).on(bs"11")
+      desugarOnBasis : Nat -> AstInfo -> Maybe (AstNode SurfaceAstPhase String) -> Maybe (AstNode CanonicalAstPhase String)
+      desugarOnBasis controls controlExpressionAstInfo Nothing =
+        Just $ canonicalAstNode onBasisAstInfo DesugaredCtrlDefaultOnInvocation onBasisString
+        where
+          onBasisAstInfo = incrementedAstInfo controlExpressionAstInfo 1
+          onBasisString = "bs\"" ++ pack (replicate controls '1') ++ "\""
+      desugarOnBasis _ _ (Just onBasis) = Just $ desugarAstNode onBasis
+
+      desugarControlExpressionNode : AstInfo -> ControlExpressionNode SurfaceAstPhase -> ControlExpressionNode CanonicalAstPhase
+      desugarControlExpressionNode expressionAstInfo (ControlledCallable controlQubits onBasisRaw controlledCallable) =
         ControlledCallable
           (map desugarNestedExpression controlQubits)
-          (map desugarAstNode onBasisRaw)
+          (desugarOnBasis (length controlQubits) expressionAstInfo onBasisRaw)
           (desugarNestedExpression controlledCallable)
-      desugarControlExpressionNode (ControlledBlock controlQubits onBasisRaw controlledBlock) =
+      desugarControlExpressionNode expressionAstInfo (ControlledBlock controlQubits onBasisRaw controlledBlock) =
         ControlledBlock
           (map desugarNestedExpression controlQubits)
-          (map desugarAstNode onBasisRaw)
+          (desugarOnBasis (length controlQubits) expressionAstInfo onBasisRaw)
           (desugarBlockExpression controlledBlock)
+
       desugarAdjointExpressionNode : AdjointExpressionNode SurfaceAstPhase -> AdjointExpressionNode CanonicalAstPhase
       desugarAdjointExpressionNode (AdjointOfCallable adjointedCallable) = AdjointOfCallable (desugarNestedExpression adjointedCallable)
       desugarAdjointExpressionNode (AdjointBlock adjointedBlock) = AdjointBlock (desugarBlockExpression adjointedBlock)

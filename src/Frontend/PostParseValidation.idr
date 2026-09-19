@@ -43,7 +43,7 @@ import Frontend.Syntax.Type
 -- (empty list = valid). No early exit -- diagnostics improve when the user
 -- sees every independent problem at once.
 --
--- TOTALITY DISCIPLINE (learned the hard way; applies to every future walk):
+-- TOTALITY DISCIPLINE:
 -- Idris 2's size-change checker credits CONSTRUCTOR PATTERNS ONLY. A record
 -- dot-projection feeding a recursive argument (`validateBlock ctx
 -- fd.functionBody`) is size-unknown, and one unknown edge poisons the whole
@@ -108,6 +108,12 @@ data ValidationError : Type where
        (errorSpan : SourceSpan)
     -> ValidationError
 
+  ControlBasisLengthMismatch :
+       (errorSpan : SourceSpan)
+    -> (controlCount : Nat)
+    -> (basisLength : Nat)
+    -> ValidationError
+
 -- The span a renderer should point at.
 public export
 validationErrorSpan : ValidationError -> SourceSpan
@@ -121,6 +127,7 @@ validationErrorSpan err =
     BreakOutsideLoop s         => s
     ContinueOutsideLoop s      => s
     ReturnOutsideFunction s    => s
+    ControlBasisLengthMismatch s _ _ => s
 
 withValidationErrorFile : String -> ValidationError -> ValidationError
 withValidationErrorFile fileName err =
@@ -135,6 +142,8 @@ withValidationErrorFile fileName err =
        BreakOutsideLoop _                => BreakOutsideLoop withFile
        ContinueOutsideLoop _             => ContinueOutsideLoop withFile
        ReturnOutsideFunction _           => ReturnOutsideFunction withFile
+       ControlBasisLengthMismatch _ controlCount basisLength =>
+         ControlBasisLengthMismatch withFile controlCount basisLength
 
 -- "file:line:col" prefix, matching the lexer-error rendering style.
 renderSpanPrefix : SourceSpan -> String
@@ -167,6 +176,10 @@ Interpolation ValidationError where
           "`continue` outside of a loop"
         ReturnOutsideFunction _ =>
           "`return` outside of a function body"
+        ControlBasisLengthMismatch _ controlCount basisLength =>
+          "control basis contains " ++ show basisLength ++
+          " states, but the control expression has " ++ show controlCount ++
+          " control qubits"
 
 --------------------------------------------------------------------------------
 -- Validation context
@@ -594,14 +607,30 @@ mutual
     (MkAstNode _ _ (MkQuantumMatchArmNode _ armBody) :: rest) =
     validateExpr ctx armBody ++ validateQuantumArmBodies ctx rest
 
+  validateControlBasis :
+      List1 SurfaceExpr -> Maybe (SurfaceAstNode String) -> List ValidationError
+  validateControlBasis _ Nothing = []
+  validateControlBasis controls
+      (Just (MkAstNode basisInfo _ rawBasis)) =
+    let controlCount = length controls
+        basisLength = length (unpack rawBasis) `minus` 4
+    in if controlCount == basisLength
+        then []
+        else [ControlBasisLengthMismatch basisInfo.span controlCount basisLength]
+
   validateControlExpr :
        ValidationContext -> ControlExpressionNode SurfaceAstPhase -> List ValidationError
   validateControlExpr ctx c =
     case c of
-      ControlledCallable controls _ callable =>
-        validateExprList1 ctx controls ++ validateExpr ctx callable
-      ControlledBlock controls _ body =>
-        validateExprList1 ctx controls ++ validateBlock ctx body
+      ControlledCallable controls onBasis callable =>
+          validateControlBasis controls onBasis
+        ++ validateExprList1 ctx controls
+        ++ validateExpr ctx callable
+
+      ControlledBlock controls onBasis body =>
+          validateControlBasis controls onBasis
+        ++ validateExprList1 ctx controls
+        ++ validateBlock ctx body
 
   validateAdjointExpr :
        ValidationContext -> AdjointExpressionNode SurfaceAstPhase -> List ValidationError
