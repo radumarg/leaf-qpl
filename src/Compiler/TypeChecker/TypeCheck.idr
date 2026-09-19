@@ -366,6 +366,7 @@ typecheckItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) =
 
 -- assign types to expressions, reject ill types programs, resolve overloads, 
 -- insert coercions, elaborate implicit arguments 
+-- apply adjoint blocks, apply controls to gates
 typecheckResolvedSyntax : ResolvedSourceFile -> TypedSourceFile
 typecheckResolvedSyntax
     (MkAstNode fileInfo (MkProvenanceMetadata provenance) (MkSourceFileNode docs items)) =
