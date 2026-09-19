@@ -5,15 +5,16 @@ This document compiles a lists of features which are covered by the [language do
 
 Higher priority:
 
+- modules, resolve imports, cycle detection, shadowing
+- Lean 4 code generation.
 - Uncomputation support.
 - `affine` & `scratch` qubits.
 - Quantum contracts.
-- Lean 4 code generation.
+- Coherent Boolean operations on qubits
+- Quantum integers and quantum arithmetic
 
-  
 Other:
 
-- modules, resolve imports, cycle detection, shadowing
 - Rust style slices.
 - Recursion.
 - Quantum conditionals.
@@ -26,4 +27,3 @@ Other:
 - Documentation comments.
 - Classical subroutines.
 - Prelude math functions.
-
