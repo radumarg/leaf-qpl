@@ -27,6 +27,6 @@ runCompileCodeExamplesTests = runTests $ Test.do
     compileLeafSource "test-fixture.rs" "fn f() {break; continue;}" `shouldBe`
       Left
         ( "Validation errors in test-fixture.rs:\n" ++
-          "test-fixture.rs:1:9: `break` outside of a loop\n" ++
-          "test-fixture.rs:1:16: `continue` outside of a loop\n"
+          "test-fixture.rs:1:9: `break` found outside of a loop\n" ++
+          "test-fixture.rs:1:16: `continue` found outside of a loop\n"
         )

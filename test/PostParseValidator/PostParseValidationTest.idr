@@ -29,21 +29,21 @@ runPostParseValidationTests = runTests $ Test.do
   test "mutable qubit references are rejected after parsing" $
     validationMessages "fn f(q: &mut qubit) {}" `shouldBe`
       Just
-        [ "test-fixture.rs:1:9: `mut` is never written on a qubit reference; " ++
+        [ "test-fixture.rs:1:9: `mut` should never be written on a qubit reference; " ++
           "qubit references are mutable by default"
         ]
 
   test "break outside a loop is rejected after parsing" $
     validationMessages "fn f() {break;}" `shouldBe`
-      Just ["test-fixture.rs:1:9: `break` outside of a loop"]
+      Just ["test-fixture.rs:1:9: `break` found outside of a loop"]
 
   test "continue outside a loop is rejected after parsing" $
     validationMessages "fn f() {continue;}" `shouldBe`
-      Just ["test-fixture.rs:1:9: `continue` outside of a loop"]
+      Just ["test-fixture.rs:1:9: `continue` found outside of a loop"]
 
   test "return in a constant initializer is rejected after parsing" $
     validationMessages "const N: i64 = return 4;" `shouldBe`
-      Just ["test-fixture.rs:1:16: `return` outside of a function body"]
+      Just ["test-fixture.rs:1:16: `return` found outside of a function body"]
 
   test "a repeated attribute name is rejected after parsing" $
     validationMessages "#[qasm_gate]\n#[qasm_gate]\nfn f() {}" `shouldBe`
@@ -65,6 +65,27 @@ runPostParseValidationTests = runTests $ Test.do
       Just
         [ "test-fixture.rs:1:14: parameter `x` is already used earlier " ++
           "in this parameter list"
+        ]
+
+  test "a repeated let-pattern binding is rejected after parsing" $
+    validationMessages "fn f() {let (x, x) = pair;}" `shouldBe`
+      Just
+        [ "test-fixture.rs:1:17: duplicate pattern binding, the name `x` " ++
+          "is already bound earlier in the same let pattern"
+        ]
+
+  test "a repeated binding across nested tuple patterns is rejected" $
+    validationMessages "fn f() {let ((x, y), (z, x)) = value;}" `shouldBe`
+      Just
+        [ "test-fixture.rs:1:26: duplicate pattern binding, the name `x` " ++
+          "is already bound earlier in the same let pattern"
+        ]
+
+  test "a repeated binding in a nested array pattern is rejected" $
+    validationMessages "fn f() {let (x, [y, x]) = value;}" `shouldBe`
+      Just
+        [ "test-fixture.rs:1:21: duplicate pattern binding, the name `x` " ++
+          "is already bound earlier in the same let pattern"
         ]
 
   test "a control basis matching the number of controls is accepted" $

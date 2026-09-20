@@ -92,6 +92,13 @@ data ValidationError : Type where
     -> (parameterNameText : String)
     -> ValidationError
 
+  -- A let pattern introduces the same variable more than once,
+  -- e.g. let (x, x) = pair; or let (x, [y, x]) = value; etc.
+  DuplicatePatternBinding :
+      (errorSpan : SourceSpan)
+    -> (bindingNameText : String)
+    -> ValidationError
+
   MutableBorrowOfQubit :
        (errorSpan : SourceSpan)
     -> ValidationError
@@ -119,14 +126,15 @@ public export
 validationErrorSpan : ValidationError -> SourceSpan
 validationErrorSpan err =
   case err of
-    UnknownAttribute s _       => s
-    DuplicateAttribute s _     => s
-    ConflictingAttributes s _  => s
-    DuplicateParameterName s _ => s
-    MutableBorrowOfQubit s     => s
-    BreakOutsideLoop s         => s
-    ContinueOutsideLoop s      => s
-    ReturnOutsideFunction s    => s
+    UnknownAttribute s _        => s
+    DuplicateAttribute s _      => s
+    ConflictingAttributes s _   => s
+    DuplicateParameterName s _  => s
+    DuplicatePatternBinding s _ => s
+    MutableBorrowOfQubit s      => s
+    BreakOutsideLoop s          => s
+    ContinueOutsideLoop s       => s
+    ReturnOutsideFunction s     => s
     ControlBasisLengthMismatch s _ _ => s
 
 withValidationErrorFile : String -> ValidationError -> ValidationError
@@ -134,14 +142,15 @@ withValidationErrorFile fileName err =
   let withFile : SourceSpan =
         { file := fileName } (validationErrorSpan err)
   in case err of
-       UnknownAttribute _ nameText       => UnknownAttribute withFile nameText
-       DuplicateAttribute _ nameText     => DuplicateAttribute withFile nameText
-       ConflictingAttributes _ nameText  => ConflictingAttributes withFile nameText
-       DuplicateParameterName _ nameText => DuplicateParameterName withFile nameText
-       MutableBorrowOfQubit _            => MutableBorrowOfQubit withFile
-       BreakOutsideLoop _                => BreakOutsideLoop withFile
-       ContinueOutsideLoop _             => ContinueOutsideLoop withFile
-       ReturnOutsideFunction _           => ReturnOutsideFunction withFile
+       UnknownAttribute _ nameText        => UnknownAttribute withFile nameText
+       DuplicateAttribute _ nameText      => DuplicateAttribute withFile nameText
+       ConflictingAttributes _ nameText   => ConflictingAttributes withFile nameText
+       DuplicateParameterName _ nameText  => DuplicateParameterName withFile nameText
+       DuplicatePatternBinding _ nameText => DuplicatePatternBinding withFile nameText
+       MutableBorrowOfQubit _             => MutableBorrowOfQubit withFile
+       BreakOutsideLoop _                 => BreakOutsideLoop withFile
+       ContinueOutsideLoop _              => ContinueOutsideLoop withFile
+       ReturnOutsideFunction _            => ReturnOutsideFunction withFile
        ControlBasisLengthMismatch _ controlCount basisLength =>
          ControlBasisLengthMismatch withFile controlCount basisLength
 
@@ -168,14 +177,16 @@ Interpolation ValidationError where
         DuplicateParameterName _ nm =>
           "parameter `" ++ nm ++
           "` is already used earlier in this parameter list"
+        DuplicatePatternBinding _ nm =>
+          "duplicate pattern binding, the name `\{nm}` is already bound earlier in the same let pattern"
         MutableBorrowOfQubit _ =>
-          "`mut` is never written on a qubit reference; qubit references are mutable by default"
+          "`mut` should never be written on a qubit reference; qubit references are mutable by default"
         BreakOutsideLoop _ =>
-          "`break` outside of a loop"
+          "`break` found outside of a loop"
         ContinueOutsideLoop _ =>
-          "`continue` outside of a loop"
+          "`continue` found outside of a loop"
         ReturnOutsideFunction _ =>
-          "`return` outside of a function body"
+          "`return` found outside of a function body"
         ControlBasisLengthMismatch _ controlCount basisLength =>
           "control basis contains " ++ show basisLength ++
           " states, but the control expression has " ++ show controlCount ++
@@ -415,22 +426,53 @@ mutual
        validateStatementList ctx stmts
     ++ validateMaybeExpr ctx finalE
 
-  validateStatementList :
-       ValidationContext
-    -> List SurfaceStatement
-    -> List ValidationError
+  validateStatementList : ValidationContext -> List SurfaceStatement -> List ValidationError
   validateStatementList ctx [] = []
   validateStatementList ctx (s :: rest) =
     validateStatement ctx s ++ validateStatementList ctx rest
 
-  validateStatement :
-       ValidationContext
-    -> SurfaceStatement
-    -> List ValidationError
+  validateLetPattern : SurfacePattern -> List ValidationError
+  validateLetPattern pattern = validatePatternBindingNames [] (patternBindingNames pattern)
+    where
+      patternBindingNames : SurfacePattern -> List SurfaceName
+      patternBindingNames (MkAstNode _ _ patternNode) =
+        case patternNode of
+          PatternWildcard                     => []
+          PatternName _ binderName            => [binderName]
+          PatternPath _                       => []
+          PatternLiteral _                    => []
+          PatternParenthesized innerPattern   => recur innerPattern
+          PatternTuple elementPatterns        => concatMap recur (forget elementPatterns)
+          PatternArray elementPatterns        => concatMap recur elementPatterns
+          PatternStruct _ fieldPatterns       => concatMap structPatternFieldBindingNames fieldPatterns
+          PatternEnumTuple _ argumentPatterns => concatMap recur argumentPatterns
+        where
+          recur : SurfacePattern -> List SurfaceName
+          recur nestedPattern = patternBindingNames (assert_smaller patternNode nestedPattern)
+
+          structPatternFieldBindingNames : SurfaceStructPatternField -> List SurfaceName
+          structPatternFieldBindingNames
+              (MkAstNode _ _ (StructPatternFieldShorthand _ binderName)) =
+            [binderName]
+          structPatternFieldBindingNames
+              (MkAstNode _ _ (StructPatternFieldExplicit _ fieldPattern)) =
+            recur fieldPattern
+
+      validatePatternBindingNames : List String -> List SurfaceName -> List ValidationError
+      validatePatternBindingNames _ [] = []
+      validatePatternBindingNames seenNames
+          (MkAstNode nameInfo _ (MkNameNode nameText) :: rest) =
+        if nameText `elem` seenNames
+          then DuplicatePatternBinding nameInfo.span nameText ::
+               validatePatternBindingNames seenNames rest
+          else validatePatternBindingNames (nameText :: seenNames) rest
+
+  validateStatement : ValidationContext -> SurfaceStatement -> List ValidationError
   validateStatement ctx (MkAstNode _ _ stmt) =
     case stmt of
-      StatementLet (MkLetBindingNode _ _ tyAnn maybeInit) =>
-           validateMaybeTy ctx tyAnn
+      StatementLet (MkLetBindingNode _ letPattern tyAnn maybeInit) =>
+           validateLetPattern letPattern
+        ++ validateMaybeTy ctx tyAnn
         ++ (case maybeInit of
               Nothing => []
               Just (MkLetInitializerNode _ initValue) =>
@@ -441,10 +483,7 @@ mutual
       StatementSemiExpression e => validateExpr ctx e
       StatementExpression e     => validateExpr ctx e
 
-  validateAssignmentTarget :
-       ValidationContext
-    -> SurfaceAssignmentTarget
-    -> List ValidationError
+  validateAssignmentTarget : ValidationContext -> SurfaceAssignmentTarget -> List ValidationError
   validateAssignmentTarget ctx (MkAstNode _ _ target) =
     case target of
       AssignTargetName _             => []
