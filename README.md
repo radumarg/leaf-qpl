@@ -16,6 +16,7 @@
 
 ![Alpha](https://img.shields.io/badge/alpha-Fall_2026-orange)
 [![Tests](https://github.com/radumarg/leaf-qpl/actions/workflows/test.yml/badge.svg)](https://github.com/radumarg/leaf-qpl/actions/workflows/test.yml)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/radumarg/leaf-qpl.svg)](https://github.com/radumarg/leaf-qpl/commits)
 [![Issues](https://img.shields.io/github/issues/radumarg/leaf-qpl)](https://github.com/radumarg/leaf-qpl/issues)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/radumarg/leaf-qpl/blob/main/LICENSE)
 [![Idris 2](https://img.shields.io/badge/Idris%202-v0.8.0-blue.svg)](https://github.com/idris-lang/Idris2/releases/tag/v0.8.0)
