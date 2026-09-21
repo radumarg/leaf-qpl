@@ -49,9 +49,13 @@ compileLeafFiles examplesDirectory [] = do
   putStrLn "Finished compiling all code examples."
   pure $ Right ()
 compileLeafFiles examplesDirectory (fileName :: fileNames) = do
-  Right () <- compileLeafFile $ examplesDirectory ++ "/" ++ fileName
-    | Left err => pure $ Left err
-  compileLeafFiles examplesDirectory fileNames
+  result <- compileLeafFile $ examplesDirectory ++ "/" ++ fileName
+  case result of
+    Left err => pure $ Left err
+    Right () => 
+      do
+        putStrLn $ "Successfully compiled: " ++ fileName
+        compileLeafFiles examplesDirectory fileNames
 
 export
 discoverAndCompileExamples : IO (Either String ())
@@ -65,6 +69,6 @@ discoverAndCompileExamples = do
         filter
           (\fileName =>
             isSuffixOf ".rs" fileName &&
-            fileName /= "8_deutsch_jozsa_using_quantum_conditional.rs")
+            fileName /= "08_deutsch_jozsa_using_quantum_conditional.rs")
           entries
-  compileLeafFiles examplesDirectory codeExampleFiles
+  compileLeafFiles examplesDirectory (sort codeExampleFiles)
