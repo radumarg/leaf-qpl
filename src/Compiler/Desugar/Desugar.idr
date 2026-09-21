@@ -22,14 +22,14 @@ import Frontend.Syntax.Type
 %default total
 
 desugarAstNode : {a : Type} -> AstNode SurfaceAstPhase a -> AstNode CanonicalAstPhase a
-desugarAstNode (MkAstNode docInfo metadata value) = canonicalAstNode docInfo Written value
+desugarAstNode (MkAstNode docInfo metadata value) = canonicalAstNode docInfo WrittenCode value
 
 ||| If the attribute is missing argument(s), the name of the function is set as attrribute argument.
 ||| Unsupported attributes names are ignored, meaning no desugaring is performed for those.
 desugarAttribute : String -> Nat -> SurfaceAttribute -> (CanonicalAttribute, Nat)
 desugarAttribute defaultArgName nextId (MkAstNode attributeInfo metadata (MkAttributeNode name arguments)) =
   let (desugaredArguments, followingId) = desugarArguments arguments
-      attribute = canonicalAstNode attributeInfo Written $
+      attribute = canonicalAstNode attributeInfo WrittenCode $
         MkAttributeNode
           (desugarAstNode name)
           desugaredArguments
@@ -38,7 +38,7 @@ desugarAttribute defaultArgName nextId (MkAstNode attributeInfo metadata (MkAttr
     argInfo : AstInfo
     argInfo = incrementedAstInfo attributeInfo nextId
     defaultArg : Maybe (List (AttributeArgument CanonicalAstPhase))
-    defaultArg = Just [canonicalAstNode argInfo InferredAttributeArgument (AttributeArgumentStringLit ("\"" ++ defaultArgName ++ "\""))]
+    defaultArg = Just [canonicalAstNode argInfo DesugaredDefaultAttributeArgument (AttributeArgumentStringLit ("\"" ++ defaultArgName ++ "\""))]
     desugarArguments : Maybe (List(AttributeArgument SurfaceAstPhase)) -> (Maybe (List (AttributeArgument CanonicalAstPhase)), Nat)
     desugarArguments (Just args) = (Just ((map desugarAstNode) args), nextId)
     desugarArguments Nothing =
@@ -49,12 +49,12 @@ desugarAttribute defaultArgName nextId (MkAstNode attributeInfo metadata (MkAttr
 
 desugarPath : SurfacePath -> CanonicalPath
 desugarPath (MkAstNode pathAstInfo metadata (MkPathNode firstSegment remainingSegments)) =
-  canonicalAstNode pathAstInfo Written $
+  canonicalAstNode pathAstInfo WrittenCode $
     MkPathNode (desugarAstNode firstSegment) (map desugarAstNode remainingSegments)
 
 desugarPattern : SurfacePattern -> CanonicalPattern
 desugarPattern (MkAstNode patternInfo _ patternNode) =
-  canonicalAstNode patternInfo Written $
+  canonicalAstNode patternInfo WrittenCode $
     case patternNode of
       PatternWildcard =>
         PatternWildcard
@@ -85,7 +85,7 @@ desugarPattern (MkAstNode patternInfo _ patternNode) =
 
     desugarStructPatternField : SurfaceStructPatternField -> CanonicalStructPatternField
     desugarStructPatternField (MkAstNode fieldInfo _ fieldNode) =
-      canonicalAstNode fieldInfo Written $
+      canonicalAstNode fieldInfo WrittenCode $
         case fieldNode of
           StructPatternFieldShorthand mutability fieldAndBinderName =>
             StructPatternFieldShorthand
@@ -139,7 +139,7 @@ mutual
             ExprLiteral $
               canonicalAstNode
                 (incrementedAstInfo expressionInfo 2)
-                DefaultUnitValue
+                DesugaredUnitValue
                 LiteralUnit
       ExprReturn (Just value) => ExprReturn (Just (desugarNestedExpression value))
       ExprCtrl control => ExprCtrl (desugarControlExpressionNode expressionInfo control)
@@ -151,7 +151,7 @@ mutual
       desugarBlockExpression : SurfaceBlock -> CanonicalBlock
       desugarBlockExpression 
         (MkAstNode blockAstInfo _ (MkBlockNode blockInnerDocs blockStatements finalExpression)) =
-        canonicalAstNode blockAstInfo Written $
+        canonicalAstNode blockAstInfo WrittenCode $
           MkBlockNode 
             (map desugarAstNode blockInnerDocs) 
             (map (\statement => desugarStatement (assert_smaller expression statement)) blockStatements) 
@@ -163,7 +163,7 @@ mutual
           MkClassicalIfNode
             (desugarNestedExpression ifCondition)
             (desugarBlockExpression ifThenBlock)
-            (Just $ ElseBlock (canonicalAstNode desugaredElseBlockAstInfo DefaultElseBlock unitBlockNode))
+            (Just $ ElseBlock (canonicalAstNode desugaredElseBlockAstInfo DesugaredElseBlock unitBlockNode))
           where
             desugaredElseBlockAstInfo = incrementedAstInfo ifExpressionInfo 1
             desugaredUnitExpressionAstInfo = incrementedAstInfo ifExpressionInfo 2
@@ -174,7 +174,7 @@ mutual
                 Just (canonicalAstNode 
                   desugaredUnitExpressionAstInfo
                   DesugaredExpression
-                  (ExprLiteral $ canonicalAstNode desugaredDefaultUnitValueAstInfo DefaultUnitValue LiteralUnit)
+                  (ExprLiteral $ canonicalAstNode desugaredDefaultUnitValueAstInfo DesugaredUnitValue LiteralUnit)
                 )
         desugarIfNode _ ifNode@(MkClassicalIfNode ifCondition ifThenBlock ifElseBranch) =
           MkClassicalIfNode
@@ -186,7 +186,7 @@ mutual
           ElseBlock (desugarBlockExpression elseBlock)
         desugarElseNode ifNode (ElseChainedIf (MkAstNode chainedIfInfo _ chainedIfNode)) =
           ElseChainedIf $
-            canonicalAstNode chainedIfInfo Written $
+            canonicalAstNode chainedIfInfo WrittenCode $
               desugarIfNode chainedIfInfo (assert_smaller ifNode chainedIfNode)
 
       -- Desugar control invocation by adding on() invocation to ctrl() if missing,
@@ -217,11 +217,11 @@ mutual
 
   desugarExpression : SurfaceExpr -> CanonicalExpr
   desugarExpression (MkAstNode expressionInfo metadata expressionNode) =
-    canonicalAstNode expressionInfo Written (desugarExpressionNode expressionInfo expressionNode)
+    canonicalAstNode expressionInfo WrittenCode (desugarExpressionNode expressionInfo expressionNode)
 
   desugarType : Ty SurfaceAstPhase (Expr SurfaceAstPhase) -> Ty CanonicalAstPhase (Expr CanonicalAstPhase)
   desugarType (MkAstNode tyAstInfo metadata typeNode) =
-    canonicalAstNode tyAstInfo Written $
+    canonicalAstNode tyAstInfo WrittenCode $
       case typeNode of
         TyPrimitive primitiveName =>
           TyPrimitive primitiveName
@@ -257,31 +257,31 @@ mutual
         desugarParameter : SurfaceAstNode (FunctionTypeParameterNode SurfaceAstPhase (SurfaceAstNode (ExpressionNode SurfaceAstPhase))) ->
           CanonicalAstNode (FunctionTypeParameterNode CanonicalAstPhase (CanonicalAstNode (ExpressionNode CanonicalAstPhase)))
         desugarParameter (MkAstNode parameterAstInfo metadata (MkFunctionTypeParameterNode parameterName parameterType)) =
-          canonicalAstNode parameterAstInfo Written $ 
+          canonicalAstNode parameterAstInfo WrittenCode $
             MkFunctionTypeParameterNode (desugarAstNode parameterName) (desugarNestedType parameterType)
 
   desugarFunctionParameter: AstNode SurfaceAstPhase (FunctionParameterNode SurfaceAstPhase) -> AstNode CanonicalAstPhase (FunctionParameterNode CanonicalAstPhase)
   desugarFunctionParameter (MkAstNode parameterInfo metadata (NormalParameter parameterDocs parameterMutability parameterName parameterType)) =
-    canonicalAstNode parameterInfo Written $
+    canonicalAstNode parameterInfo WrittenCode $
       NormalParameter
         (map desugarAstNode parameterDocs)
         (map desugarAstNode parameterMutability)
         (desugarAstNode parameterName)
         (desugarType parameterType)
   desugarFunctionParameter (MkAstNode parameterInfo metadata (ReceiverParameter receiverDocs receiverBorrow)) =
-    canonicalAstNode parameterInfo Written $
+    canonicalAstNode parameterInfo WrittenCode $
       ReceiverParameter
         (map desugarAstNode receiverDocs)
         (map desugarAstNode receiverBorrow)
 
   desugarSignedPauliTerm : SurfaceSignedPauliTerm -> SignedPauliTerm CanonicalAstPhase
   desugarSignedPauliTerm (MkAstNode termInfo metadata (MkSignedPauliTermNode sign pauliString)) =
-    canonicalAstNode termInfo Written $
+    canonicalAstNode termInfo WrittenCode $
       MkSignedPauliTermNode sign (desugarAstNode pauliString)
 
   desugarContractPredicate : SurfaceContractPredicate -> CanonicalContractPredicate
   desugarContractPredicate (MkAstNode predicateInfo metadata predicateNode) =
-    canonicalAstNode predicateInfo Written $
+    canonicalAstNode predicateInfo WrittenCode $
       case predicateNode of
         ContractClean qubitArgument =>
           ContractClean (desugarExpression qubitArgument)
@@ -304,7 +304,7 @@ mutual
 
   desugarContractClause : ContractClause SurfaceAstPhase (Expr SurfaceAstPhase) -> ContractClause CanonicalAstPhase (Expr CanonicalAstPhase) 
   desugarContractClause (MkAstNode contractAstInfo metadata contractClauseNode) =
-    canonicalAstNode contractAstInfo Written $
+    canonicalAstNode contractAstInfo WrittenCode $
       case contractClauseNode of
         RequiresClause predicate => RequiresClause (desugarContractPredicate predicate)
         EnsuresClause predicate => EnsuresClause (desugarContractPredicate predicate)
@@ -315,7 +315,7 @@ mutual
 
   desugarAssignmentTarget : SurfaceAstNode (AssignmentTargetNode SurfaceAstPhase) -> CanonicalAstNode (AssignmentTargetNode CanonicalAstPhase)
   desugarAssignmentTarget (MkAstNode assignmentTargetAstInfo metadata assignmentTargetNode) =
-    canonicalAstNode assignmentTargetAstInfo Written $
+    canonicalAstNode assignmentTargetAstInfo WrittenCode $
       case assignmentTargetNode of
         AssignTargetName targetName =>
           AssignTargetName (desugarAstNode targetName)
@@ -337,7 +337,7 @@ mutual
   ||| TODO: Bug: arr[f()] += 1; should not become: arr[f()] = arr[f()] + 1;
   desugarStatement : Statement SurfaceAstPhase -> Statement CanonicalAstPhase
   desugarStatement (MkAstNode statementAstInfo metadata statementNode) =
-    canonicalAstNode statementAstInfo Written $
+    canonicalAstNode statementAstInfo WrittenCode $
       case statementNode of
         StatementLet (MkLetBindingNode qualifiers pattern typeAnnotation initializer) =>
           StatementLet $
@@ -355,7 +355,7 @@ mutual
       where
         inferredLinearQualifier : CanonicalAstNode QuantumStorageQualifier
         inferredLinearQualifier = let linearAstInfo = incrementedAstInfo statementAstInfo 1 in
-                                    canonicalAstNode linearAstInfo InferredDefaultQubitQualifier QualifierLinear
+                                    canonicalAstNode linearAstInfo DesugaredDefaultQubitQualifier QualifierLinear
 
         desugarLetQualifiers : Maybe SurfaceTy -> List (AstNode SurfaceAstPhase QuantumStorageQualifier) -> List (AstNode CanonicalAstPhase QuantumStorageQualifier)
         desugarLetQualifiers typeAnnotation [] = if isQubitLikeType typeAnnotation then [inferredLinearQualifier] else []
@@ -420,7 +420,7 @@ mutual
 ||| Also "(return 2)" is desugared to "return 2;"
 desugarFunctionBody : Block SurfaceAstPhase -> Block CanonicalAstPhase
 desugarFunctionBody (MkAstNode functionBodyAstInfo metadata (MkBlockNode blockInnerDocs blockStatements finalExpression)) =
-  canonicalAstNode functionBodyAstInfo Written $
+  canonicalAstNode functionBodyAstInfo WrittenCode $
     MkBlockNode
       (map desugarAstNode blockInnerDocs)
       (map desugarStatement blockStatements ++ desugarFinalExpression finalExpression)
@@ -439,7 +439,7 @@ desugarFunctionBody (MkAstNode functionBodyAstInfo metadata (MkBlockNode blockIn
                 ExprReturn $ Just $
                   canonicalAstNode unitExpressionInfo DesugaredExpression $
                     ExprLiteral $
-                      canonicalAstNode unitValueInfo DefaultUnitValue LiteralUnit)]
+                      canonicalAstNode unitValueInfo DesugaredUnitValue LiteralUnit)]
       desugarFinalExpression (Just finalExpression@(MkAstNode finalExpressionInfo _ _)) =
         let statementSemiExpressionInfo = { span := finalExpressionInfo.span } (incrementedAstInfo functionBodyAstInfo 1)
             desugaredFinalExpression = desugarExpression finalExpression
@@ -454,7 +454,7 @@ desugarFunctionBody (MkAstNode functionBodyAstInfo metadata (MkBlockNode blockIn
 
 desugarItem : SurfaceItem -> CanonicalItem
 desugarItem (MkAstNode itemInfo metadata item) =
-  canonicalAstNode itemInfo Written $
+  canonicalAstNode itemInfo WrittenCode $
     case item of
       ItemModule declaration => assert_total $ idris_crash "Desugar.idr: desugarItem: ItemModule not implemented."
       ItemUse declaration => assert_total $ idris_crash "Desugar.idr: desugarItem: ItemUse not implemented."
@@ -516,17 +516,17 @@ desugarItem (MkAstNode itemInfo metadata item) =
                 (desugarFunctionBody functionBody)
               where
                 desugarFunctionEffect : Maybe (AstNode SurfaceAstPhase FunctionEffect) -> Nat -> (Maybe (AstNode CanonicalAstPhase FunctionEffect), Nat)
-                desugarFunctionEffect Nothing inc = (Just $ canonicalAstNode (incrementedAstInfo itemInfo inc) InferredDefaultFunctionEffect EffectGeneral, inc + 1)
+                desugarFunctionEffect Nothing inc = (Just $ canonicalAstNode (incrementedAstInfo itemInfo inc) DesugaredDefaultFunctionEffect EffectGeneral, inc + 1)
                 desugarFunctionEffect (Just functionEffectNode) inc = (Just $ desugarAstNode functionEffectNode, inc)
                 desugarFunctionType : Maybe (Ty SurfaceAstPhase (Expr SurfaceAstPhase)) -> Nat -> Maybe (Ty CanonicalAstPhase (Expr CanonicalAstPhase))
-                desugarFunctionType Nothing inc = Just $ canonicalAstNode (incrementedAstInfo itemInfo inc) InferredDefaultFunctionReturnType TyUnit
+                desugarFunctionType Nothing inc = Just $ canonicalAstNode (incrementedAstInfo itemInfo inc) DesugaredDefaultFunctionReturnType TyUnit
                 desugarFunctionType (Just functionTypeNode) _ = Just $ desugarType functionTypeNode
 
 export
 desugarSurfaceSyntax : SurfaceSourceFile -> CanonicalSourceFile
 desugarSurfaceSyntax
     (MkAstNode fileInfo metadata (MkSourceFileNode docs items)) =
-  canonicalAstNode fileInfo Written $
+  canonicalAstNode fileInfo WrittenCode $
     MkSourceFileNode
       (map desugarAstNode docs)
       (map desugarItem items)

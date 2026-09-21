@@ -20,6 +20,11 @@ import Frontend.Syntax.Type
 
 %default total
 
+||| Creates a NodeId with current Id, and returns the next Id for the next node.
+public export
+reserveNodeId : Nat -> (NodeId, Nat)
+reserveNodeId current = (MkNodeId current 0, S current)
+
 public export
 snocList1 : List1 a -> a -> List1 a
 snocList1 (first ::: rest) value = first ::: (rest ++ [value])

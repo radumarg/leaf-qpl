@@ -375,11 +375,11 @@ resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) =
 
 
 -- Desugar := and scratch qubits by adding a uncompute() when variables go out of scope and are not returned
-resolveCanonicalSyntax : CanonicalSourceFile -> Either ResolutionError ResolvedProgram
+resolveCanonicalSyntax : CanonicalSourceFile -> Either ResolutionError ResolvedModule
 resolveCanonicalSyntax
     (MkAstNode fileInfo (MkProvenanceMetadata provenance) (MkSourceFileNode docs items)) =
   Right $
-    MkResolvedProgram
+    MkResolvedModule
       (resolveNode fileInfo (MkProvenanceMetadata provenance) $
         MkSourceFileNode
           (map resolveAstNode docs)

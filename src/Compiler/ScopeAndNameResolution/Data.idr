@@ -4,7 +4,7 @@ import Frontend.ASTData
 import Frontend.ASTPhases
 import Frontend.Source
 import Frontend.Syntax.AST
-
+import Frontend.Type
 
 import Data.SortedMap
 
@@ -15,8 +15,8 @@ ResolvedSymbolInfo : Type
 ResolvedSymbolInfo = SymbolInfo ()
 
 public export
-record ResolvedProgram where
-  constructor MkResolvedProgram
+record ResolvedModule where
+  constructor MkResolvedModule
   ast         : ResolvedSourceFile
   rootScope   : ScopeId
   nodeScopes  : SortedMap NodeId ScopeId

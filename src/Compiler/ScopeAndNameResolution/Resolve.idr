@@ -384,11 +384,11 @@ resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) =
 -- reports unknown or ambiguous names.
 
 -- ExprParenthesized, PatternParenthesized, TyParenthesized should dissapear
-resolveCanonicalSyntax : CanonicalSourceFile -> Either ResolutionError ResolvedProgram
+resolveCanonicalSyntax : CanonicalSourceFile -> Either ResolutionError ResolvedModule
 resolveCanonicalSyntax
     (MkAstNode fileInfo (MkProvenanceMetadata provenance) (MkSourceFileNode docs items)) =
   Right $
-    MkResolvedProgram
+    MkResolvedModule
       (resolveNode fileInfo (MkProvenanceMetadata provenance) $
         MkSourceFileNode
           (map resolveAstNode docs)

@@ -13,8 +13,12 @@ public export
 TypedSymbolInfo : Type
 TypedSymbolInfo = SymbolInfo LeafType
 
-record TypedProgram where
-  constructor MkTypedProgram
-  ast         : TypedSourceFile
-  symbols     : SortedMap SymbolId TypedSymbolInfo
-  scopes      : SortedMap ScopeId ScopeInfo
+public export
+record TypedModule where
+  constructor MkTypedModule
+  ast             : TypedSourceFile
+  rootScope       : ScopeId
+  nodeScopes      : SortedMap NodeId ScopeId
+  symbols         : SortedMap SymbolId TypedSymbolInfo
+  scopes          : SortedMap ScopeId ScopeInfo
+  expressionTypes : SortedMap NodeId LeafType

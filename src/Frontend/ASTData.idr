@@ -74,32 +74,32 @@ Ord ScopeId where
 
 public export
 data NodeProvenance
-  = Written
-  | DefaultElseBlock
-  | DefaultUnitValue
+  = WrittenCode
+  | DesugaredElseBlock
+  | DesugaredUnitValue
   | DesugaredExpression
   | DesugaredAssignment
   | DesugaredReturnStatement
   | DesugaredCtrlDefaultOnInvocation
-  | InferredAttributeArgument
-  | InferredDefaultFunctionEffect
-  | InferredDefaultFunctionReturnType
-  | InferredDefaultQubitQualifier
+  | DesugaredDefaultAttributeArgument
+  | DesugaredDefaultFunctionEffect
+  | DesugaredDefaultFunctionReturnType
+  | DesugaredDefaultQubitQualifier
 
 
 public export
 Show NodeProvenance where
-  show DefaultElseBlock = "default empty else block"
-  show DefaultUnitValue = "default unit value"
+  show DesugaredElseBlock = "default empty else block"
+  show DesugaredUnitValue = "default unit value"
   show DesugaredExpression = "desugared expression"
   show DesugaredAssignment = "desugared assignment from compound assignment"
   show DesugaredReturnStatement = "desugared return statement"
   show DesugaredCtrlDefaultOnInvocation = "desugared control syntax default on(bs\"1..\") invocation"
-  show InferredAttributeArgument = "inferred attribute argument"
-  show InferredDefaultFunctionEffect = "inferred default function effect"
-  show InferredDefaultFunctionReturnType = "inferred default function return type"
-  show InferredDefaultQubitQualifier = "inferred default qubit qualifier"
-  show Written = "user written code"
+  show DesugaredDefaultAttributeArgument = "inferred attribute argument"
+  show DesugaredDefaultFunctionEffect = "inferred default function effect"
+  show DesugaredDefaultFunctionReturnType = "inferred default function return type"
+  show DesugaredDefaultQubitQualifier = "inferred default qubit qualifier"
+  show WrittenCode = "user written code"
 
 --------------------------------------------------------------------------------
 -- Common AST information
@@ -111,6 +111,10 @@ record AstInfo where
   nodeId : NodeId
   span   : SourceSpan
 
+--------------------------------------------------------------------------------
+-- Symbol information
+--------------------------------------------------------------------------------
+
 -- The declaration or binding category denoted by a SymbolId.
 -- Reserved builtins are represented directly by ExprBuiltin and therefore do
 -- not need a SymbolKind. Shadowable prelude functions are ordinary functions.
@@ -118,7 +122,7 @@ public export
 data SymbolKind
   = SymbolLocalBinding          -- A binder introduced by let, for, match, or qmatch.
   | SymbolFunctionParameter     -- An ordinary named parameter of a function declaration.
-  | SymbolReceiverParameter     -- The self, &self, or &mut self parameter of a method.
+  | SymbolSelfReceiverParameter -- The self, &self, or &mut self parameter of a method.
   | SymbolFunctionTypeParameter -- A named parameter appearing inside a function type.
   | SymbolConstant              -- A named const item.
   | SymbolFunction              -- A free function declared at module level.
@@ -136,7 +140,7 @@ public export
 data SymbolOrigin
   = SourceSymbol AstInfo         -- A user-written declaration; AstInfo identifies its declaration node and source span.
   | ImportedSymbol SourceSpan    -- A symbol introduced by an import; SourceSpan identifies the import site.
-  | BuiltinSymbol                -- A compiler-provided symbol with no declaration in the source AST.
+  | PreludeSymbol                -- A symbol with no ExprBuiltin declaration in the source AST, like a prelude functions.
   | GeneratedSymbol AstInfo      -- A compiler-generated symbol; AstInfo identifies the generated declaration node and its span.
 
 public export
@@ -184,12 +188,3 @@ record ScopeInfo where
   bindings        : SortedMap String ScopeBinding
   symbolsInOrder  : SnocList SymbolId
 
---------------------------------------------------------------------------------
--- Helpers for AST nodes
---
--- Creates a NodeId with current Id, and returns the next Id for the next node.
---------------------------------------------------------------------------------
-
-public export
-reserveNodeId : Nat -> (NodeId, Nat)
-reserveNodeId current = (MkNodeId current 0, S current)
