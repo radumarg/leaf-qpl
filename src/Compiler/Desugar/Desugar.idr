@@ -52,6 +52,7 @@ desugarPath (MkAstNode pathAstInfo metadata (MkPathNode firstSegment remainingSe
   canonicalAstNode pathAstInfo WrittenCode $
     MkPathNode (desugarAstNode firstSegment) (map desugarAstNode remainingSegments)
 
+-- Perenthesized patterns will be removed
 desugarPattern : SurfacePattern -> CanonicalPattern
 desugarPattern (MkAstNode patternInfo _ patternNode) =
   canonicalAstNode patternInfo WrittenCode $
@@ -97,6 +98,7 @@ desugarPattern (MkAstNode patternInfo _ patternNode) =
               (recur fieldPattern)
 
 mutual
+  -- Perenthesized expressions will be removed
   desugarExpressionNode : AstInfo -> ExpressionNode SurfaceAstPhase -> ExpressionNode CanonicalAstPhase
   desugarExpressionNode expressionInfo expression =
     case expression of
@@ -219,6 +221,7 @@ mutual
   desugarExpression (MkAstNode expressionInfo metadata expressionNode) =
     canonicalAstNode expressionInfo WrittenCode (desugarExpressionNode expressionInfo expressionNode)
 
+  -- Perenthesized types will be removed
   desugarType : Ty SurfaceAstPhase (Expr SurfaceAstPhase) -> Ty CanonicalAstPhase (Expr CanonicalAstPhase)
   desugarType (MkAstNode tyAstInfo metadata typeNode) =
     canonicalAstNode tyAstInfo WrittenCode $

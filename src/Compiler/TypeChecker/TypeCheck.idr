@@ -53,7 +53,7 @@ typecheckPattern (MkAstNode patternInfo (MkProvenanceMetadata provenance) patter
       PatternLiteral literal =>
         PatternLiteral (typecheckAstNode literal)
       PatternParenthesized innerPattern =>
-        PatternParenthesized (recur innerPattern)
+        assert_total (idris_crash "Parenthesized patterns should have been removed during the desugaring phase.")
       PatternTuple elementPatterns =>
         PatternTuple (map recur elementPatterns)
       PatternArray elementPatterns =>
@@ -93,7 +93,7 @@ mutual
       ExprPath path => ExprPath (typecheckPath path)
       ExprBuiltin builtin => ExprBuiltin builtin
       ExprSelf => ExprSelf
-      ExprParenthesized inner => ExprParenthesized (typecheckNestedExpression inner)
+      ExprParenthesized inner => assert_total (idris_crash "Parenthesized expressions should have been removed during the desugaring phase.")
       ExprTuple elements => ExprTuple (map typecheckNestedExpression elements)
       ExprArray elements => ExprArray (map typecheckNestedExpression elements)
       ExprRepeatedArray element count => ExprRepeatedArray (typecheckNestedExpression element) (typecheckNestedExpression count)
@@ -178,7 +178,7 @@ mutual
         TyUnit =>
           TyUnit
         TyParenthesized innerType =>
-          TyParenthesized (typecheckNestedType innerType)
+          assert_total (idris_crash "Parenthesized types should have been removed during the desugaring phase.")
         TyTuple elementTypes =>
           TyTuple (map typecheckNestedType elementTypes)
         TyArray elementType sizeExpression =>
