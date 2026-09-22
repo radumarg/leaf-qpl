@@ -1730,6 +1730,7 @@ impl Person {
 }
 
 use my_library::helper;
+use my_library::helper as help;
 
 // Top-level code must be made of items, not normal executable statement. These are not allowed at the top level:
 let i = 1;
