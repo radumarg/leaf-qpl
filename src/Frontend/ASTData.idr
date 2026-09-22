@@ -139,9 +139,15 @@ data SymbolKind
 public export
 data SymbolOrigin
   = SourceSymbol AstInfo         -- A user-written declaration; AstInfo identifies its declaration node and source span.
-  | ImportedSymbol SourceSpan    -- A symbol introduced by an import; SourceSpan identifies the import site.
+  | ImportedSymbol               -- A symbol introduced by an import;
   | PreludeSymbol                -- A symbol with no ExprBuiltin declaration in the source AST, like a prelude functions.
   | GeneratedSymbol AstInfo      -- A compiler-generated symbol; AstInfo identifies the generated declaration node and its span.
+
+public export
+data SymbolVisibility
+  = PublicVisibility            -- May be accessed from another module, subject to path accessibility.
+  | ModuleVisibility            -- Access is restricted by the declaring module's privacy rules.
+  | LexicalVisibility           -- Local binding: accessible only through lexical scope.
 
 public export
 record SymbolInfo (typeInfo : Type) where
@@ -150,9 +156,32 @@ record SymbolInfo (typeInfo : Type) where
   symbolKind       : SymbolKind
   symbolType       : typeInfo
   declaredName     : String
-  declarationInfo  : AstInfo
   declaringScope   : ScopeId
+  declaringModule  : SymbolId
+  visibility       : SymbolVisibility
   origin           : SymbolOrigin
+
+public export
+data ReferenceRole
+  = ValueReference       -- x in x + 1, f(x), or return x.
+  | AssignmentTarget     -- x in x = value.
+  | TypeReference        -- Point in a type annotation, cast, or impl target.
+  | QualifierReference   -- math in math::calculate.
+  | ImportReference      -- calculate in use math::calculate.
+  | ConstructorReference -- Point in Point { x: 1 }.
+  | PatternReference     -- Left in a matching pattern such as Result::Left(x).
+  | FieldReference       -- x in point.x, Point { x: value }, or a struct pattern.
+  | MethodReference      -- update in object.update().
+
+public export
+record SymbolReference where
+  constructor MkSymbolReference
+  target         : SymbolId
+  occurrence     : AstInfo
+  enclosingScope : ScopeId           -- block, function, or descendant scopes.
+  contextNode    : NodeId            -- expression node, value assignment node, type annotation node, import path node
+  role           : ReferenceRole     -- expression vs value assignment vs type annotation vs import path
+  writtenName    : String            -- spelling used here, for import aliases this may be different from symbol declaredName
 
 --------------------------------------------------------------------------------
 -- Scope information
@@ -161,6 +190,7 @@ record SymbolInfo (typeInfo : Type) where
 -- Nodes that introduce scopes carry their own ScopeId in their payload.
 --------------------------------------------------------------------------------
 
+public export
 data ScopeOrigin          -- Describes how the entire scope was created.
   = SourceScope AstInfo   -- A lexical scope introduced by a source AST node, such as a module, function, or block.
   | PreludeScope          -- The compiler-created scope containing names made available by the language prelude.
@@ -172,19 +202,32 @@ data BindingKind     -- Describes how one particular name entered that scope.
   | ImportedBinding  -- Introduced by an explicit import into this scope.
   | PreludeBinding   -- Made available implicitly through the language prelude.
 
+public export
 record ScopeBinding where
   constructor MkScopeBinding
   writtenName  : String
-  introducedAt : SourceSpan
+  introducedAt : Maybe SourceSpan
   target       : SymbolId
   bindingKind  : BindingKind
+
+public export
+data ScopeKind
+  = ModuleScope       -- Top-level source module or a nested module namespace.
+  | FunctionScope     -- Function or method parameters, including a self receiver; holds parameters, its body can have a child BlockScope.
+  | BlockScope        -- Local declarations inside a block. Includes if, while, loop, and quantum-control block.
+  | ForScope          -- Pattern bindings introduced by a for loop, visible in its body.
+  | MatchArmScope     -- Pattern bindings belonging to one classical or quantum match arm.
+  | ImplScope         -- Lexical context for resolving declarations inside an impl block.
+  | MemberScope       -- Members owned by a module, type, or struct-like enum variant.
 
 public export
 record ScopeInfo where
   constructor MkScopeInfo
   id              : ScopeId
+  kind            : ScopeKind
   parent          : Maybe ScopeId
   origin          : ScopeOrigin
-  bindings        : SortedMap String ScopeBinding
+  typeBindings    : SortedMap String ScopeBinding
+  valueBindings   : SortedMap String ScopeBinding
   symbolsInOrder  : SnocList SymbolId
 

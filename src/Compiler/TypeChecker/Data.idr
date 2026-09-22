@@ -21,4 +21,5 @@ record TypedModule where
   nodeScopes      : SortedMap NodeId ScopeId
   symbols         : SortedMap SymbolId TypedSymbolInfo
   scopes          : SortedMap ScopeId ScopeInfo
+  references      : SortedMap SymbolId (SnocList SymbolReference)
   expressionTypes : SortedMap NodeId LeafType

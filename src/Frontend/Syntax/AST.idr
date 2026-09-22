@@ -437,7 +437,7 @@ mutual
 
     AssignTargetField :
          (targetObject : Expr phase)
-      -> (fieldName    : Name phase)
+      -> (fieldName    : MemberName phase)
       -> AssignmentTargetNode phase
 
     -- t.0 = 3;  index spelling preserved raw, like every numeric literal.
@@ -524,14 +524,14 @@ mutual
     -- resolution is a later concern.
     ExprMethodCall :
          (receiver        : Expr phase)
-      -> (methodName      : Name phase)
+      -> (methodName      : MemberName phase)
       -> (methodArguments : List (Expr phase))
       -> ExpressionNode phase
 
     -- p.x
     ExprField :
          (fieldObject : Expr phase)
-      -> (fieldName   : Name phase)
+      -> (fieldName   : MemberName phase)
       -> ExpressionNode phase
 
     -- t.0 -- raw index spelling preserved.

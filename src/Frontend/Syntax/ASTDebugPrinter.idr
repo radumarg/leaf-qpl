@@ -42,6 +42,9 @@ field depth name value = indent depth ++ name ++ " = " ++ show value ++ "\n"
 nameText : PhasePretty phase => Name phase -> String
 nameText (MkAstNode _ _ n) = prettyName n
 
+memberNameText : PhasePretty phase => MemberName phase -> String
+memberNameText (MkAstNode _ _ n) = prettyMemberName n
+
 leafText : Show a => AstNode phase a -> String
 leafText (MkAstNode _ _ value) = show value
 
@@ -96,8 +99,8 @@ mutual
     ExprRepeatedArray x n => debugExpr depth x ++ debugExpr depth n
     ExprCall f xs => debugExpr depth f ++ debugExprs depth xs
     ExprMethodCall x method xs =>
-      field depth "method" (nameText method) ++ debugExpr depth x ++ debugExprs depth xs
-    ExprField x name => field depth "field" (nameText name) ++ debugExpr depth x
+      field depth "method" (memberNameText method) ++ debugExpr depth x ++ debugExprs depth xs
+    ExprField x name => field depth "field" (memberNameText name) ++ debugExpr depth x
     ExprTupleIndex x index => field depth "index" index ++ debugExpr depth x
     ExprIndex x index => debugExpr depth x ++ debugExpr depth index
     ExprUnary _ x => debugExpr depth x

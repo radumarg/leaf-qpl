@@ -17,11 +17,13 @@ ResolvedSymbolInfo = SymbolInfo ()
 public export
 record ResolvedModule where
   constructor MkResolvedModule
-  ast         : ResolvedSourceFile
-  rootScope   : ScopeId
-  nodeScopes  : SortedMap NodeId ScopeId
-  symbols     : SortedMap SymbolId ResolvedSymbolInfo
-  scopes      : SortedMap ScopeId ScopeInfo
+  ast          : ResolvedSourceFile
+  rootScope    : ScopeId
+  nodeScopes   : SortedMap NodeId ScopeId
+  symbols      : SortedMap SymbolId ResolvedSymbolInfo
+  references   : SortedMap SymbolId (SnocList SymbolReference)
+  memberScopes : SortedMap SymbolId ScopeId
+  scopes       : SortedMap ScopeId ScopeInfo
 
 -- Covered by PostParseValidation:
 --  DuplicatePatternBinding: one pattern introduces the same variable twice, example: `let (x, x) = pair;`.

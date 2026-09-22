@@ -108,8 +108,8 @@ mutual
       ExprRepeatedArray element count => ExprRepeatedArray (resolveNestedExpression element) (resolveNestedExpression count)
       ExprStructLiteral path fields => assert_total $ idris_crash "Resolve.idr: resolveExpressionNode: ExprStructLiteral not implemented"
       ExprCall callee arguments => ExprCall (resolveNestedExpression callee) (map resolveNestedExpression arguments)
-      ExprMethodCall receiver name arguments => ExprMethodCall (resolveNestedExpression receiver) (resolveName name) (map resolveNestedExpression arguments)
-      ExprField object name => ExprField (resolveNestedExpression object) (resolveName name)
+      ExprMethodCall receiver name arguments => ExprMethodCall (resolveNestedExpression receiver) (?resolveMemberName1 name) (map resolveNestedExpression arguments)
+      ExprField object name => ExprField (resolveNestedExpression object) (?resolveMemberName2 name)
       ExprTupleIndex tuple indexText => ExprTupleIndex (resolveNestedExpression tuple) indexText
       ExprIndex object index => ExprIndex (resolveNestedExpression object) (resolveNestedExpression index)
       ExprUnary operator operand => ExprUnary (resolveAstNode operator) (resolveNestedExpression operand)
@@ -283,7 +283,7 @@ mutual
         AssignTargetField targetObject fieldName =>
           AssignTargetField
             (resolveExpression targetObject)
-            (resolveName fieldName)
+            (?resolveNameH7 fieldName)
         AssignTargetTupleIndex targetObject tupleIndexRawText =>
           AssignTargetTupleIndex
             (resolveExpression targetObject)
@@ -394,6 +394,8 @@ resolveCanonicalSyntax
           (map resolveAstNode docs)
           (map resolveItem items))
       (MkScopeId 0)
+      empty
+      empty
       empty
       empty
       empty

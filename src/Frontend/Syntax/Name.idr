@@ -58,6 +58,15 @@ NameFor CanonicalAstPhase = NameNode
 NameFor ResolvedAstPhase  = ResolvedNameNode
 NameFor TypedAstPhase     = ResolvedNameNode
 
+-- method calls (occur in structs, enums and primitive types)
+-- fields (can occur attached to structs, tuple structs, tuples, and enum variants)
+public export
+MemberNameFor : AstPhase -> Type
+MemberNameFor SurfaceAstPhase   = NameNode
+MemberNameFor CanonicalAstPhase = NameNode
+MemberNameFor ResolvedAstPhase  = NameNode
+MemberNameFor TypedAstPhase     = ResolvedNameNode
+
 public export
 Name : AstPhase -> Type
 Name phase = AstNode phase (NameFor phase)
@@ -77,6 +86,10 @@ ResolvedName = Name ResolvedAstPhase
 public export
 TypedName : Type
 TypedName = Name TypedAstPhase
+
+public export
+MemberName : AstPhase -> Type
+MemberName phase = AstNode phase (MemberNameFor phase)
 
 --------------------------------------------------------------------------------
 -- Path segments

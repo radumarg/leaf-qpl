@@ -28,6 +28,9 @@ typecheckName (MkAstNode nameInfo (MkProvenanceMetadata provenance) (MkResolvedN
   typecheckNode nameInfo (MkProvenanceMetadata provenance) $
     MkResolvedNameNode nameText symbolId
 
+typecheckMemberName : AstNode ResolvedAstPhase (MemberNameFor ResolvedAstPhase) -> TypedName
+typecheckMemberName = ?typecheckMemberNameH
+
 typecheckAttribute : ResolvedAttribute -> TypedAttribute
 typecheckAttribute (MkAstNode attributeInfo (MkProvenanceMetadata provenance) (MkAttributeNode name arguments)) =
   typecheckNode attributeInfo (MkProvenanceMetadata provenance) $
@@ -99,8 +102,8 @@ mutual
       ExprRepeatedArray element count => ExprRepeatedArray (typecheckNestedExpression element) (typecheckNestedExpression count)
       ExprStructLiteral path fields => assert_total $ idris_crash "Resolve.idr: typecheckExpressionNode: ExprStructLiteral not implemented"
       ExprCall callee arguments => ExprCall (typecheckNestedExpression callee) (map typecheckNestedExpression arguments)
-      ExprMethodCall receiver name arguments => ExprMethodCall (typecheckNestedExpression receiver) (typecheckName name) (map typecheckNestedExpression arguments)
-      ExprField object name => ExprField (typecheckNestedExpression object) (typecheckName name)
+      ExprMethodCall receiver name arguments => ExprMethodCall (typecheckNestedExpression receiver) (typecheckMemberName name) (map typecheckNestedExpression arguments)
+      ExprField object name => ExprField (typecheckNestedExpression object) (typecheckMemberName name)
       ExprTupleIndex tuple indexText => ExprTupleIndex (typecheckNestedExpression tuple) indexText
       ExprIndex object index => ExprIndex (typecheckNestedExpression object) (typecheckNestedExpression index)
       ExprUnary operator operand => ExprUnary (typecheckAstNode operator) (typecheckNestedExpression operand)
@@ -274,7 +277,7 @@ mutual
         AssignTargetField targetObject fieldName =>
           AssignTargetField
             (typecheckExpression targetObject)
-            (typecheckName fieldName)
+            (typecheckMemberName fieldName)
         AssignTargetTupleIndex targetObject tupleIndexRawText =>
           AssignTargetTupleIndex
             (typecheckExpression targetObject)

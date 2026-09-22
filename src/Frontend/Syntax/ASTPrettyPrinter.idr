@@ -55,9 +55,10 @@ import Frontend.Syntax.Type
 --
 -- PHASE POLYMORPHISM: every renderer is generic over `phase : AstPhase`
 -- ("trees that grow": surface -> canonical -> resolved -> typed). The ONLY
--- payloads that differ across phases are names and paths -- `NameFor phase`
--- (a bare `NameNode` until resolution attaches a `SymbolId`) and
--- `PathFor phase` (a segment list until resolution collapses it). Those two
+-- payloads that differ across phases are names, member names and paths --
+-- `NameFor phase` (a bare `NameNode` until resolution attaches a `SymbolId`),
+-- `MemberNameFor phase` (a bare `NameNode` until typechecking) and
+-- `PathFor phase` (a segment list until resolution collapses it). Those three
 -- are the whole content of the `PhasePretty` interface below; the rendered
 -- form is always just the written text (a pretty-printer reproduces source
 -- syntax, so a resolved name's `SymbolId` is intentionally dropped).
@@ -154,36 +155,43 @@ prettyResolvedPathNode : ResolvedPathNode -> String
 prettyResolvedPathNode (MkResolvedPathNode first rest _) =
   joinWith "::" (first :: rest)
 
--- Rendering the two payloads that "grow" across phases. `prettyName` takes
--- the raw `NameFor phase`, `prettyPath` the raw `PathFor phase`; the located
--- `showName`/`showPath` wrappers below unwrap the AstNode first.
+-- Rendering the three payloads that "grow" across phases. The interface
+-- methods take raw payloads; the located wrappers below unwrap AstNode first.
 public export
 interface PhasePretty phase where
   prettyName : NameFor phase -> String
+  prettyMemberName : MemberNameFor phase -> String
   prettyPath : PathFor phase -> String
 
 public export
 PhasePretty SurfaceAstPhase where
   prettyName = prettyNameNode
+  prettyMemberName = prettyNameNode
   prettyPath = prettyPathNode
 
 public export
 PhasePretty CanonicalAstPhase where
   prettyName = prettyNameNode
+  prettyMemberName = prettyNameNode
   prettyPath = prettyPathNode
 
 public export
 PhasePretty ResolvedAstPhase where
   prettyName = prettyResolvedNameNode
+  prettyMemberName = prettyNameNode
   prettyPath = prettyResolvedPathNode
 
 public export
 PhasePretty TypedAstPhase where
   prettyName = prettyResolvedNameNode
+  prettyMemberName = prettyResolvedNameNode
   prettyPath = prettyResolvedPathNode
 
 showName : PhasePretty phase => Name phase -> String
 showName (MkAstNode _ _ n) = prettyName n
+
+showMemberName : PhasePretty phase => MemberName phase -> String
+showMemberName (MkAstNode _ _ n) = prettyMemberName n
 
 showPath : PhasePretty phase => Path phase -> String
 showPath (MkAstNode _ _ p) = prettyPath p
@@ -607,10 +615,10 @@ mutual
           "(" ++ joinWith ", " (showExprList style args) ++ ")"
 
       ExprMethodCall recv methodName args =>
-        showExprAt style precPostfix recv ++ "." ++ showName methodName ++
+        showExprAt style precPostfix recv ++ "." ++ showMemberName methodName ++
           "(" ++ joinWith ", " (showExprList style args) ++ ")"
 
-      ExprField obj fld      => showExprAt style precPostfix obj ++ "." ++ showName fld
+      ExprField obj fld      => showExprAt style precPostfix obj ++ "." ++ showMemberName fld
       ExprTupleIndex obj idx => showExprAt style precPostfix obj ++ "." ++ idx
       ExprIndex obj idx      =>
         showExprAt style precPostfix obj ++ "[" ++ showExprAt style 0 idx ++ "]"
@@ -837,7 +845,7 @@ mutual
       AssignTargetName nm      => showName nm
       AssignTargetIndex obj ix =>
         showExprAt style precPostfix obj ++ "[" ++ showExprAt style 0 ix ++ "]"
-      AssignTargetField obj fld => showExprAt style precPostfix obj ++ "." ++ showName fld
+      AssignTargetField obj fld => showExprAt style precPostfix obj ++ "." ++ showMemberName fld
       AssignTargetTupleIndex obj ix => showExprAt style precPostfix obj ++ "." ++ ix
 
   public export
