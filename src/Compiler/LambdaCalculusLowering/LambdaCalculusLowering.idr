@@ -92,7 +92,7 @@ mutual
       ExprName name => ExprName (typecheckName name)
       ExprPath path => ExprPath (typecheckPath path)
       ExprBuiltin builtin => ExprBuiltin builtin
-      ExprSelf => ExprSelf
+      ExprSelf selfReceiver => ExprSelf selfReceiver
       ExprParenthesized inner => assert_total (idris_crash "Parenthesized expressions should have been removed during the desugaring phase.")
       ExprTuple elements => ExprTuple (map typecheckNestedExpression elements)
       ExprArray elements => ExprArray (map typecheckNestedExpression elements)
@@ -205,8 +205,11 @@ mutual
         typecheckParameter : ResolvedAstNode (FunctionTypeParameterNode ResolvedAstPhase (ResolvedAstNode (ExpressionNode ResolvedAstPhase))) ->
           TypedAstNode (FunctionTypeParameterNode TypedAstPhase (TypedAstNode (ExpressionNode TypedAstPhase)))
         typecheckParameter (MkAstNode parameterAstInfo (MkProvenanceMetadata provenance) (MkFunctionTypeParameterNode parameterName parameterType)) =
-          typecheckNode parameterAstInfo (MkProvenanceMetadata provenance) $ 
-            MkFunctionTypeParameterNode (typecheckName parameterName) (typecheckNestedType parameterType)
+          typecheckNode parameterAstInfo (MkProvenanceMetadata provenance) $
+            -- Not typecheckName: a function-type parameter name is never a
+            -- symbol (see the comment on FunctionTypeParameterNode in
+            -- Syntax/Type.idr), so only its AstNode wrapping is updated.
+            MkFunctionTypeParameterNode (typecheckAstNode parameterName) (typecheckNestedType parameterType)
 
   typecheckFunctionParameter: AstNode ResolvedAstPhase (FunctionParameterNode ResolvedAstPhase) -> AstNode TypedAstPhase (FunctionParameterNode TypedAstPhase)
   typecheckFunctionParameter (MkAstNode parameterInfo (MkProvenanceMetadata provenance) (NormalParameter parameterDocs parameterMutability parameterName parameterType)) =

@@ -18,6 +18,17 @@ import Frontend.Syntax.Operator
 --------------------------------------------------------------------------------
 
 public export
+data QubitTypeQualifier
+  = Linear
+  | Affine
+
+public export
+record QuantumStorageProperties where
+  constructor MkQuantumStorageProperties
+  usage   : QubitTypeQualifier
+  scratch : Bool
+
+public export
 data LeafType
   = LeafPrimitive TypPrimName
   | LeafNamed SymbolId
@@ -27,4 +38,4 @@ data LeafType
   | LeafSlice LeafType
   | LeafReference BorrowKind LeafType
   | LeafFunction FunctionEffect (List LeafType) LeafType
-
+  | LeafQualified QuantumStorageProperties LeafType

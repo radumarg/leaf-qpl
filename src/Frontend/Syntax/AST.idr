@@ -319,13 +319,14 @@ mutual
     constType       : Ty phase (Expr phase)
     constValue      : Expr phase
 
-  -- `use my_library::helper;`
+  -- `use my_library::helper;` or `use my_library::helper as help;`
   public export
   record UseDeclarationNode (phase : AstPhase) where
     constructor MkUseDeclarationNode
     useDocs       : List (DocComment phase)
     useVisibility : Maybe (AstNode phase VisibilityQualifier)
     usePath       : Path phase
+    useAlias      : Maybe (AstNode phase NameNode)
 
   -- Two source forms:
   --   mod my_module { ...items... }   -- inline body
@@ -478,9 +479,12 @@ mutual
          (builtinFunction : Builtin)
       -> ExpressionNode phase
 
-    -- `self` in method bodies.
+    -- `self` in method bodies. Carries the resolved SymbolId of the
+    -- enclosing receiver parameter from ResolvedAstPhase onward, exactly as
+    -- NameFor does for ExprName/ExprPath -- see SelfFor in Name.idr.
     ExprSelf :
-         ExpressionNode phase
+         (selfReceiver : SelfFor phase)
+      -> ExpressionNode phase
 
     -- (e) -- kept distinct from (e,) [one-element ExprTuple]; discarded at
     -- canonicalization. Same story as TyParenthesized/PatternParenthesized.

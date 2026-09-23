@@ -45,6 +45,27 @@ resolvePath (MkAstNode pathAstInfo (MkProvenanceMetadata provenance) (MkPathNode
       (map pathSegmentText remainingSegments)
       (MkSymbolId pathAstInfo.nodeId.surfaceId) -- TODO REVIEW
   where
+    -- pathSegmentText discards each segment's own AstNode (span and
+    -- NodeId) down to its bare spelling. That is fine for the FINAL
+    -- segment -- its resolved target becomes resolvedPathTargetSymbolId
+    -- above -- but every segment BEFORE the last one is a QUALIFIER
+    -- (`math` in `math::calculate`) that must itself resolve to some
+    -- SymbolId (a module or type) to walk the path at all, and once real
+    -- resolution replaces the TODO REVIEW placeholder above, that
+    -- per-qualifier lookup needs somewhere to record its result.
+    --
+    -- ResolvedPathNode has no room for it: it keeps only the final target
+    -- and raw segment text (see the comment on ResolvedPathNode in
+    -- Syntax/Name.idr). So each qualifier's resolution must instead be
+    -- recorded as a SymbolReference with role = QualifierReference in
+    -- ResolvedModule.references, built from THIS segment's own AstInfo --
+    -- available right here, before pathSegmentText throws the span away --
+    -- not from the collapsed path's outer AstInfo. Validate.idr already
+    -- expects such entries to reference NodeIds absent from the resolved
+    -- AST/nodeScopes table (see its doc comment on validateResolvedModule).
+    -- Do not let real path resolution ship without also emitting them, or
+    -- a typo'd qualifier ("my_libary::helper") will point at nothing and
+    -- its diagnostic will silently vanish.
     pathSegmentText : CanonicalPathSegment -> String
     pathSegmentText (MkAstNode _ _ (PathSegmentName text)) = text
     pathSegmentText (MkAstNode _ _ PathSegmentSelf) = "self"
@@ -101,7 +122,7 @@ mutual
       ExprName name => ExprName (resolveName name)
       ExprPath path => ExprPath (resolvePath path)
       ExprBuiltin builtin => ExprBuiltin builtin
-      ExprSelf => ExprSelf
+      ExprSelf () => ExprSelf ?resolveSelfSymbolId
       ExprParenthesized inner => ExprParenthesized (resolveNestedExpression inner)
       ExprTuple elements => ExprTuple (map resolveNestedExpression elements)
       ExprArray elements => ExprArray (map resolveNestedExpression elements)
@@ -214,8 +235,11 @@ mutual
         resolveParameter : CanonicalAstNode (FunctionTypeParameterNode CanonicalAstPhase (CanonicalAstNode (ExpressionNode CanonicalAstPhase))) ->
           ResolvedAstNode (FunctionTypeParameterNode ResolvedAstPhase (ResolvedAstNode (ExpressionNode ResolvedAstPhase)))
         resolveParameter (MkAstNode parameterAstInfo (MkProvenanceMetadata provenance) (MkFunctionTypeParameterNode parameterName parameterType)) =
-          resolveNode parameterAstInfo (MkProvenanceMetadata provenance) $ 
-            MkFunctionTypeParameterNode (resolveName parameterName) (resolveNestedType parameterType)
+          resolveNode parameterAstInfo (MkProvenanceMetadata provenance) $
+            -- Not resolveName: a function-type parameter name is never a
+            -- symbol (see the comment on FunctionTypeParameterNode in
+            -- Syntax/Type.idr), so only its AstNode wrapping is updated.
+            MkFunctionTypeParameterNode (resolveAstNode parameterName) (resolveNestedType parameterType)
 
   resolveFunctionParameter: AstNode CanonicalAstPhase (FunctionParameterNode CanonicalAstPhase) -> AstNode ResolvedAstPhase (FunctionParameterNode ResolvedAstPhase)
   resolveFunctionParameter (MkAstNode parameterInfo (MkProvenanceMetadata provenance) (NormalParameter parameterDocs parameterMutability parameterName parameterType)) =

@@ -196,9 +196,8 @@ showMemberName (MkAstNode _ _ n) = prettyMemberName n
 showPath : PhasePretty phase => Path phase -> String
 showPath (MkAstNode _ _ p) = prettyPath p
 
--- Attribute names are `AstNode phase NameNode`, NOT `Name phase` -- they
--- never resolve to a SymbolId at any phase (see Attribute.idr) -- so they
--- are rendered directly, with no `PhasePretty` constraint.
+-- Attribute names and import aliases retain plain spelling at every phase,
+-- so they are rendered directly, with no `PhasePretty` constraint.
 showPlainName : AstNode phase NameNode -> String
 showPlainName (MkAstNode _ _ (MkNameNode text)) = text
 
@@ -320,7 +319,7 @@ mutual
   showStructPatternField (MkAstNode _ _ f) =
     case f of
       StructPatternFieldShorthand mutability nm =>
-        prefixSpace (show mutability) ++ showName nm
+        maybe "" (\m => prefixSpace (show m)) mutability ++ showName nm
       StructPatternFieldExplicit nm pat =>
         showName nm ++ ": " ++ showPattern pat
 
@@ -420,7 +419,7 @@ exprOwnPrecedence e =
     ExprName _             => precAtomic
     ExprPath _              => precAtomic
     ExprBuiltin _            => precAtomic
-    ExprSelf                  => precAtomic
+    ExprSelf _                 => precAtomic
     ExprParenthesized _        => precAtomic
     ExprTuple _                 => precAtomic
     ExprArray _                  => precAtomic
@@ -524,7 +523,9 @@ mutual
     -> List String
   showFunctionTypeParameterList style [] = []
   showFunctionTypeParameterList style (MkAstNode _ _ (MkFunctionTypeParameterNode nm ty) :: rest) =
-    (showName nm ++ ": " ++ showTy style ty) :: showFunctionTypeParameterList style rest
+    -- Not showName: a function-type parameter name is plain NameNode at
+    -- every phase (never resolved), so no PhasePretty dispatch is needed.
+    (prettyNameNode nm.value ++ ": " ++ showTy style ty) :: showFunctionTypeParameterList style rest
 
 --------------------------------------------------------------------------------
 -- Expressions
@@ -599,7 +600,7 @@ mutual
       ExprName nm     => showName nm
       ExprPath p      => showPath p
       ExprBuiltin b   => show b
-      ExprSelf        => "self"
+      ExprSelf _      => "self"
 
       ExprParenthesized inner => parens (showExprAt style 0 inner)
       ExprTuple elems          => showTupleLike (showExprList1 style elems)
@@ -1048,8 +1049,9 @@ mutual
   showConstDeclaration style (MkAstNode _ _ cd) = showConstDeclarationNode style cd
 
   showUseDeclarationNode : PhasePretty phase => PrettyStyle -> UseDeclarationNode phase -> String
-  showUseDeclarationNode style (MkUseDeclarationNode docs vis path) =
-    docsPrefix docs ++ optionalVisPrefix vis ++ "use " ++ showPath path ++ ";"
+  showUseDeclarationNode style (MkUseDeclarationNode docs vis path alias) =
+    docsPrefix docs ++ optionalVisPrefix vis ++ "use " ++ showPath path ++
+      maybe "" (\name => " as " ++ showPlainName name) alias ++ ";"
 
   public export
   showUseDeclaration : PhasePretty phase => PrettyStyle -> UseDeclaration phase -> String

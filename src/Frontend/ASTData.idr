@@ -34,11 +34,11 @@ Ord NodeId where
       EQ => compare leftDesugar rightDesugar
       ordering => ordering
 
--- Unique id for a name/binding, 
--- introduced by the program.
--- Not all nodes introduce a name.
--- Not all names are introduced by a node, 
--- e.g. builtins, imports are not.
+-- Unique id for a declared entity, not for each name bound to it in a scope.
+-- Imports and aliases introduce ScopeBindings that retain the target entity's
+-- SymbolId; they do not create a new identity for that entity.
+-- Not every AST node declares an entity, and some entities (such as prelude
+-- symbols) have no source declaration node.
 public export
 record SymbolId where
   constructor MkSymbolId
@@ -52,9 +52,9 @@ public export
 Ord SymbolId where
   compare (MkSymbolId left) (MkSymbolId right) = compare left right
 
--- Blocks, functions, modules, 
--- can introduce scopes.
--- Unique id for a lexical scope.
+-- Unique id for a lexical scope or a member namespace.
+-- Blocks, functions, and modules can introduce lexical scopes; types and
+-- struct-like enum variants can also own scopes containing their members.
 public export
 record ScopeId where
   constructor MkScopeId
@@ -79,6 +79,7 @@ data NodeProvenance
   | DesugaredUnitValue
   | DesugaredExpression
   | DesugaredAssignment
+  | DesugaredFieldShorthand
   | DesugaredReturnStatement
   | DesugaredCtrlDefaultOnInvocation
   | DesugaredDefaultAttributeArgument
@@ -93,6 +94,7 @@ Show NodeProvenance where
   show DesugaredUnitValue = "default unit value"
   show DesugaredExpression = "desugared expression"
   show DesugaredAssignment = "desugared assignment from compound assignment"
+  show DesugaredFieldShorthand = "expanded shorthand field"
   show DesugaredReturnStatement = "desugared return statement"
   show DesugaredCtrlDefaultOnInvocation = "desugared control syntax default on(bs\"1..\") invocation"
   show DesugaredDefaultAttributeArgument = "inferred attribute argument"
@@ -118,12 +120,15 @@ record AstInfo where
 -- The declaration or binding category denoted by a SymbolId.
 -- Reserved builtins are represented directly by ExprBuiltin and therefore do
 -- not need a SymbolKind. Shadowable prelude functions are ordinary functions.
+-- A function TYPE's own parameter names (`fn(qs: [qubit; 4]) -> ...` used as
+-- a type, not a declaration) also have no SymbolKind here: they never
+-- resolve to a symbol at all and stay plain written text at every AST phase
+-- -- see the comment on FunctionTypeParameterNode in Syntax/Type.idr.
 public export
 data SymbolKind
   = SymbolLocalBinding          -- A binder introduced by let, for, match, or qmatch.
   | SymbolFunctionParameter     -- An ordinary named parameter of a function declaration.
   | SymbolSelfReceiverParameter -- The self, &self, or &mut self parameter of a method.
-  | SymbolFunctionTypeParameter -- A named parameter appearing inside a function type.
   | SymbolConstant              -- A named const item.
   | SymbolFunction              -- A free function declared at module level.
   | SymbolAssociatedFunction    -- A function declared in an impl without a self receiver.
@@ -139,7 +144,6 @@ data SymbolKind
 public export
 data SymbolOrigin
   = SourceSymbol AstInfo         -- A user-written declaration; AstInfo identifies its declaration node and source span.
-  | ImportedSymbol               -- A symbol introduced by an import;
   | PreludeSymbol                -- A symbol with no ExprBuiltin declaration in the source AST, like a prelude functions.
   | GeneratedSymbol AstInfo      -- A compiler-generated symbol; AstInfo identifies the generated declaration node and its span.
 
@@ -187,28 +191,32 @@ record SymbolReference where
 -- Scope information
 --
 -- Scope data live in a scope tree / resolver output, not directly on every AST node.
--- Nodes that introduce scopes carry their own ScopeId in their payload.
 --------------------------------------------------------------------------------
 
 public export
 data ScopeOrigin          -- Describes how the entire scope was created.
-  = SourceScope AstInfo   -- A lexical scope introduced by a source AST node, such as a module, function, or block.
+  = SourceScope AstInfo   -- A source-backed lexical scope or member namespace.
   | PreludeScope          -- The compiler-created scope containing names made available by the language prelude.
   | ExternalModuleScope   -- The scope representing the exported namespace of a module defined outside this source file.
 
 public export
 data BindingKind     -- Describes how one particular name entered that scope.
-  = DeclaredBinding  -- Introduced by a declaration directly within this scope.
+  = DeclaredBinding  -- Declaration-provided, not imported; may expose an impl member outside its declaring scope.
   | ImportedBinding  -- Introduced by an explicit import into this scope.
   | PreludeBinding   -- Made available implicitly through the language prelude.
 
 public export
 record ScopeBinding where
   constructor MkScopeBinding
-  writtenName  : String
-  introducedAt : Maybe SourceSpan
-  target       : SymbolId
-  bindingKind  : BindingKind
+  writtenName       : String
+  introducedAt      : Maybe SourceSpan
+  target            : SymbolId
+  bindingKind       : BindingKind
+  -- Controls access through this binding, independently of the target's declaration visibility.
+  -- ModuleVisibility is relative to the module containing this binding's scope,
+  -- not the target symbol's declaringModule. A private use of a public symbol
+  -- therefore keeps the imported name private without changing the target symbol.
+  bindingVisibility : SymbolVisibility
 
 public export
 data ScopeKind
@@ -223,11 +231,27 @@ data ScopeKind
 public export
 record ScopeInfo where
   constructor MkScopeInfo
-  id              : ScopeId
-  kind            : ScopeKind
-  parent          : Maybe ScopeId
-  origin          : ScopeOrigin
-  typeBindings    : SortedMap String ScopeBinding
-  valueBindings   : SortedMap String ScopeBinding
-  symbolsInOrder  : SnocList SymbolId
-
+  id                      : ScopeId
+  kind                    : ScopeKind
+  -- Lexical/enclosing context, not member ownership. Unqualified lookup may
+  -- follow this link subject to the language's scope and capture rules.
+  -- Member ownership is recorded separately by the module's memberScopes table,
+  -- which maps an owning SymbolId to the ScopeId used for qualified lookup.
+  -- Qualified lookup searches the appropriate name map in that scope without
+  -- falling back through parent: Point::missing must not find an enclosing
+  -- module's unrelated missing declaration.
+  -- A module's memberScopes entry can reuse its existing ModuleScope; it does
+  -- not need a second scope solely for qualified lookup.
+  parent                  : Maybe ScopeId
+  origin                  : ScopeOrigin
+  -- Each name map holds one binding per spelling. When same-scope shadowing is
+  -- allowed, the newer binding replaces the entry; the completed map is not a
+  -- history of which binding was visible at each source position. Resolve each
+  -- occurrence in the environment valid there and preserve its target SymbolId
+  -- in the AST/reference table, so later shadowing cannot change earlier uses.
+  -- declaredSymbolsInOrder alone does not reconstruct those earlier environments;
+  -- source-position lookup would need binding history or scope snapshots.
+  typeBindings           : SortedMap String ScopeBinding
+  valueBindings          : SortedMap String ScopeBinding
+  fieldBindings          : SortedMap String ScopeBinding   -- Rust treats fields separately from ordinary namespaces
+  declaredSymbolsInOrder : SnocList SymbolId

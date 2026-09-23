@@ -595,7 +595,7 @@ mutual
       -- homogeneity, contract ordering, duplicate supports) stay out until
       -- that syntax exists to check.
       ExprPath _ => []
-      ExprSelf   => []
+      ExprSelf _ => []
 
   validateFieldInitList :
        ValidationContext

@@ -162,7 +162,7 @@ mutual
   data StructPatternFieldNode : (phase : AstPhase) -> Type where
 
     StructPatternFieldShorthand :
-         (mutability : Mutability)
+         (mutability : Maybe Mutability) -- Nothing for { x }; Just Mutable for { mut x }.
       -> (fieldAndBinderName : Name phase)
       -> StructPatternFieldNode phase
 

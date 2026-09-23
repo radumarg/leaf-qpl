@@ -92,6 +92,31 @@ MemberName : AstPhase -> Type
 MemberName phase = AstNode phase (MemberNameFor phase)
 
 --------------------------------------------------------------------------------
+-- `self`
+--------------------------------------------------------------------------------
+-- `self` (ExprSelf in AST.idr) has no written spelling to preserve -- it is
+-- always the keyword -- so unlike NameFor there is no NameNode-shaped payload
+-- before resolution. What resolution adds is exactly what it adds to every
+-- other name occurrence: the SymbolId of the enclosing method's receiver
+-- parameter (SymbolSelfReceiverParameter in ASTData.idr), so a `self`
+-- occurrence is self-describing after resolution -- like ExprName/ExprPath --
+-- instead of forcing every consumer to re-derive it from nodeScopes by
+-- re-walking the enclosing scope chain looking for the one binding of kind
+-- SymbolSelfReceiverParameter.
+--
+-- Not wrapped in `AstNode phase (...)` the way Name/MemberName are: ExprSelf
+-- is already located by its own enclosing AstNode, and there is no separate
+-- span to give the SymbolId of its own.
+--------------------------------------------------------------------------------
+
+public export
+SelfFor : AstPhase -> Type
+SelfFor SurfaceAstPhase   = ()
+SelfFor CanonicalAstPhase = ()
+SelfFor ResolvedAstPhase  = SymbolId
+SelfFor TypedAstPhase     = SymbolId
+
+--------------------------------------------------------------------------------
 -- Path segments
 --------------------------------------------------------------------------------
 -- A path segment is one component of a Rust-style :: path.

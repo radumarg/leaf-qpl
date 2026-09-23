@@ -57,6 +57,18 @@ import Frontend.Syntax.Operator
 --   * `linear affine qubit`           -- mutually exclusive qualifiers
 --------------------------------------------------------------------------------
 
+-- A function-type parameter's name (`qs` in `fn(qs: [qubit; 4]) -> ...`),
+-- used by FunctionTypeParameterNode below. Deliberately AstNode-wrapped for
+-- a source span (diagnostics still point at the exact written name) but with
+-- the SurfaceAstPhase/CanonicalAstPhase payload (NameNode, i.e. spelling
+-- only) reused UNCHANGED at every phase -- unlike `Name phase = AstNode
+-- phase (NameFor phase)`, which switches to ResolvedNameNode from
+-- ResolvedAstPhase onward. See the comment on FunctionTypeParameterNode
+-- below for why this name is never resolved to a symbol.
+public export
+FunctionTypeParameterName : AstPhase -> Type
+FunctionTypeParameterName phase = AstNode phase NameNode
+
 mutual
 
   public export
@@ -157,13 +169,37 @@ mutual
   -- One parameter inside a FUNCTION TYPE: `qs: [qubit; 4]`. The name is
   -- required because every function-type parameter in the spec is written
   -- name-first; if Leaf ever admits Rust-style anonymous fn-type parameters
-  -- (fn(i32) -> i32), this becomes `Maybe (Name phase)` -- a one-line change.
+  -- (fn(i32) -> i32), this becomes `Maybe (FunctionTypeParameterName phase)`
+  -- -- a one-line change.
   -- Distinct from the (richer) declaration-side parameter in Decl.idr, which
   -- additionally carries doc comments and mutability.
+  --
+  -- parameterName is deliberately NOT `Name phase`: it stays plain written
+  -- text (`FunctionTypeParameterName phase`, defined below) at EVERY AST
+  -- phase, instead of gaining a resolved SymbolId from ResolvedAstPhase
+  -- onward the way an ordinary Name phase does. A function-type parameter
+  -- name is documentation only, exactly like the optional names in Rust's
+  -- own `fn(i32)` vs `fn(x: i32)` function-pointer types:
+  --
+  --   * it is never itself in scope -- nothing in the grammar can write an
+  --     occurrence that refers back to it;
+  --   * it does not correspond to any runtime binding a caller supplies by
+  --     name (call sites pass positional arguments);
+  --   * `fn(x: i32) -> i32` and `fn(y: i32) -> i32` must be the very same
+  --     type, so the name cannot be part of the type's identity either.
+  --
+  -- Resolving it would force minting a SymbolId for an identifier with no
+  -- possible occurrence to resolve to it, and answering questions the rest
+  -- of the design has no good answer for: which ScopeKind would host it (no
+  -- existing kind models "the parameter list of a function TYPE" as opposed
+  -- to a function DECLARATION's FunctionScope), and what declaringScope a
+  -- symbol with no real lexical home would even record. Leaving it
+  -- unresolved sidesteps all of that -- see ASTData.idr's SymbolKind, which
+  -- correspondingly has no case for it.
   public export
   record FunctionTypeParameterNode (phase : AstPhase) (arraySizeExpr : Type) where
     constructor MkFunctionTypeParameterNode
-    parameterName : Name phase
+    parameterName : FunctionTypeParameterName phase
     parameterType : AstNode phase (TyNode phase arraySizeExpr)
 
 --------------------------------------------------------------------------------

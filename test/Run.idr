@@ -10,6 +10,7 @@ import PostParseValidator.PostParseValidationTest
 import Parser.ExpressionParseTest
 import Parser.FunctionParseTest
 import Parser.TopModuleParseTest
+import ScopeAndNameResolution.ValidationTest
 
 main : IO ()
 main = do
@@ -18,6 +19,7 @@ main = do
   runFunctionParseTests
   runTopModuleParseTests
   runPostParseValidationTests
+  runResolutionValidationTests
   runDesugaringTests
   runCompileCodeExamplesTests
   Right () <- discoverAndCompileExamples

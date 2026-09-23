@@ -88,10 +88,18 @@ desugarPattern (MkAstNode patternInfo _ patternNode) =
     desugarStructPatternField (MkAstNode fieldInfo _ fieldNode) =
       canonicalAstNode fieldInfo WrittenCode $
         case fieldNode of
-          StructPatternFieldShorthand mutability fieldAndBinderName =>
-            StructPatternFieldShorthand
-              mutability
-              (desugarAstNode fieldAndBinderName)
+          -- { x } becomes { x: x }, and { mut x } becomes { x: mut x }.
+          -- The field refers to a member, while the pattern introduces a local
+          -- binding: they must be separate name nodes before name resolution.
+          -- TODO: add tests one parser supports structs
+          StructPatternFieldShorthand mutability (MkAstNode nameInfo _ name) =>
+            StructPatternFieldExplicit
+              (canonicalAstNode nameInfo WrittenCode name)
+              (canonicalAstNode
+                (MkAstInfo (incrementedAstInfo nameInfo 2).nodeId fieldInfo.span)
+                DesugaredFieldShorthand $
+                PatternName mutability $
+                  canonicalAstNode (incrementedAstInfo nameInfo 1) DesugaredFieldShorthand name)
           StructPatternFieldExplicit fieldName fieldPattern =>
             StructPatternFieldExplicit
               (desugarAstNode fieldName)
@@ -106,12 +114,12 @@ mutual
       ExprName name => ExprName (desugarAstNode name)
       ExprPath path => ExprPath (desugarPath path)
       ExprBuiltin builtin => ExprBuiltin builtin
-      ExprSelf => ExprSelf
+      ExprSelf selfReceiver => ExprSelf selfReceiver
       ExprParenthesized inner => (desugarNestedExpression inner).value
       ExprTuple elements => ExprTuple (map desugarNestedExpression elements)
       ExprArray elements => ExprArray (map desugarNestedExpression elements)
       ExprRepeatedArray element count => ExprRepeatedArray (desugarNestedExpression element) (desugarNestedExpression count)
-      ExprStructLiteral path fields => assert_total $ idris_crash "Desugar.idr: desugarExpressionNode: ExprStructLiteral not implemented"
+      ExprStructLiteral path fields => ExprStructLiteral (desugarPath path) (map desugarFieldInitializer fields)
       ExprCall callee arguments => ExprCall (desugarNestedExpression callee) (map desugarNestedExpression arguments)
       ExprMethodCall receiver name arguments => ExprMethodCall (desugarNestedExpression receiver) (desugarAstNode name) (map desugarNestedExpression arguments)
       ExprField object name => ExprField (desugarNestedExpression object) (desugarAstNode name)
@@ -150,6 +158,24 @@ mutual
       desugarNestedExpression : SurfaceExpr -> CanonicalExpr
       desugarNestedExpression nestedExpression =
         desugarExpression (assert_smaller expression nestedExpression)
+
+      desugarFieldInitializer : AstNode SurfaceAstPhase (FieldInitializerNode SurfaceAstPhase) ->
+        AstNode CanonicalAstPhase (FieldInitializerNode CanonicalAstPhase)
+      desugarFieldInitializer (MkAstNode fieldInfo _ fieldNode) =
+        canonicalAstNode fieldInfo WrittenCode $
+          case fieldNode of
+            -- TODO: add tests one parser supports structs
+            -- Point { x } becomes Point { x: x }. Keep the original name for
+            -- the field and create a separate name for the local value lookup.
+            FieldInitShorthand (MkAstNode nameInfo _ name) =>
+              FieldInitExplicit
+                (canonicalAstNode nameInfo WrittenCode name)
+                (canonicalAstNode (incrementedAstInfo nameInfo 2) DesugaredFieldShorthand $
+                  ExprName $
+                    canonicalAstNode (incrementedAstInfo nameInfo 1) DesugaredFieldShorthand name)
+            FieldInitExplicit fieldName fieldValue =>
+              FieldInitExplicit (desugarAstNode fieldName) (desugarNestedExpression fieldValue)
+
       desugarBlockExpression : SurfaceBlock -> CanonicalBlock
       desugarBlockExpression 
         (MkAstNode blockAstInfo _ (MkBlockNode blockInnerDocs blockStatements finalExpression)) =
