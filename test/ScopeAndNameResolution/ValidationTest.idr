@@ -56,7 +56,7 @@ validModule = MkResolvedModule
   (resolvedAstNode (info 0) WrittenCode (MkSourceFileNode [] []))
   (fromList [(MkNodeId 0 0, MkScopeId 0), (MkNodeId 10 0, MkScopeId 1)])
   (fromList [(MkSymbolId 0, rootSymbol), (MkSymbolId 1, localSymbol)])
-  (fromList [(MkSymbolId 1, MkLocalVariableInfo ImmutableLocal Nothing)])
+  (fromList [(MkSymbolId 1, MkLocalVariableInfo ImmutableLocal NotQubitLocal)])
   (fromList [(MkSymbolId 1, [< reference])])
   (fromList [(MkScopeId 0, rootScope), (MkScopeId 1, blockScope)])
   (fromList [(MkSymbolId 0, MkScopeId 0)])
@@ -268,12 +268,12 @@ runResolutionValidationTests = runTests $ Test.do
       [show (MissingNodeScope (MkNodeId 10 0) (MkScopeId 99))]
 
   test "local-variable metadata must target existing symbols" $
-    diagnostics ({ localVariables := fromList [(MkSymbolId 99, MkLocalVariableInfo ImmutableLocal Nothing)] }
+    diagnostics ({ localVariables := fromList [(MkSymbolId 99, MkLocalVariableInfo ImmutableLocal NotQubitLocal)] }
                  validModule) `shouldBe`
       [show (MissingLocalSymbol (MkSymbolId 99))]
 
   test "local-variable metadata cannot describe modules" $
-    diagnostics ({ localVariables := fromList [(MkSymbolId 0, MkLocalVariableInfo ImmutableLocal Nothing)] }
+    diagnostics ({ localVariables := fromList [(MkSymbolId 0, MkLocalVariableInfo ImmutableLocal NotQubitLocal)] }
                  validModule) `shouldBe`
       [show (InvalidLocalSymbolKind (MkSymbolId 0))]
 
