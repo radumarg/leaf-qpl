@@ -57,33 +57,6 @@ record AccessEvent where
   place      : Place      -- The affected local, temporary, field, element or referent.
   occurrence : AstInfo    -- The access's AST occurrence and diagnostic source span.
 
--- TypedModule repeats most of ResolvedModule's fields rather than embedding
--- a ResolvedModule value or sharing a parameterized base record. Idris
--- records have no subtyping/structural extension, so a literal field-list
--- repeat is the idiomatic way to add fields here -- but the repetition is
--- not purely mechanical, since not every field means the same thing on
--- both sides of typechecking:
---
---   * nodeScopes, scopes, memberScopes are expected to be threaded through
---     UNCHANGED from the ResolvedModule that fed this TypedModule: the
---     scope tree itself does not change during typechecking, only what
---     gets looked up in it (e.g. field/method resolution, which reuses the
---     same ScopeInfo/ScopeBinding machinery -- see MemberNameFor in
---     Syntax/Name.idr).
---   * references and localVariables are expected to grow: typechecking
---     adds the FieldReference/MethodReference entries pure lexical
---     resolution could not produce (it did not yet know the receiver's
---     type), and can fill in a qubit local's deferred linear/affine
---     default (see the comment on LocalVariableInfo.quantumStorage in
---     ScopeAndNameResolution/Data.idr).
---   * symbols and ast are genuinely different types at each phase
---     (TypedSymbolInfo vs ResolvedSymbolInfo, TypedSourceFile vs
---     ResolvedSourceFile) -- the one place the repetition is unavoidable
---     regardless of how the rest is factored.
---
--- None of this is enforced by the type system: nothing currently stops a
--- caller building a TypedModule whose nodeScopes/scopes/memberScopes
--- diverge from the ResolvedModule it was supposedly built from.
 public export
 record TypedModule where
   constructor MkTypedModule

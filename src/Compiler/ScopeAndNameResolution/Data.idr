@@ -20,29 +20,17 @@ data LocalMutability
   | MutableLocal
 
 public export
+data QubitStorageStatus
+  = NotQubitLocal
+  | PendingQubitDefault
+  | AssignedQubitStorage QuantumStorageProperties
+
+public export
 record LocalVariableInfo where
   constructor MkLocalVariableInfo
-  mutability : LocalMutability
-  -- Nothing is overloaded with two different meanings that this type alone
-  -- cannot distinguish:
-  --   (a) this local's type isn't qubit-shaped at all, so no qubit storage
-  --       qualifier applies -- e.g. an i32 or a struct;
-  --   (b) this local IS qubit-shaped (directly, or as an array/tuple
-  --       element) but its linear/affine/scratch default has not been
-  --       assigned yet -- that only happens once typechecking knows the
-  --       type and fills in the default (linear, non-scratch) for an
-  --       unqualified `let`.
-  -- Telling (a) from (b) apart means cross-referencing this same SymbolId's
-  -- SymbolInfo.symbolType in the enclosing ResolvedModule/TypedModule's
-  -- `symbols` table. Nothing here or in Validate.idr checks that the two
-  -- tables actually agree, so a bug that leaves a qubit local's (b) as
-  -- Nothing past typechecking would look identical to a legitimately
-  -- non-qubit local.
-  quantumStorage : Maybe QuantumStorageProperties
+  mutability     : LocalMutability
+  quantumStorage : QubitStorageStatus
 
--- See the comment on TypedModule in Compiler/TypeChecker/Data.idr for how
--- these tables are expected to evolve once typechecking builds a
--- TypedModule from this one.
 public export
 record ResolvedModule where
   constructor MkResolvedModule

@@ -123,7 +123,6 @@ record AstInfo where
 -- A function TYPE's own parameter names (`fn(qs: [qubit; 4]) -> ...` used as
 -- a type, not a declaration) also have no SymbolKind here: they never
 -- resolve to a symbol at all and stay plain written text at every AST phase
--- -- see the comment on FunctionTypeParameterNode in Syntax/Type.idr.
 public export
 data SymbolKind
   = SymbolLocalBinding          -- A binder introduced by let, for, match, or qmatch.
@@ -169,7 +168,7 @@ public export
 data ReferenceRole
   = ValueReference       -- x in x + 1, f(x), or return x.
   | AssignmentTarget     -- x in x = value.
-  | TypeReference        -- Point in a type annotation, cast, or impl target.
+  | TypeReference        -- Point in a type annotation, cast, or impl target: let p: Point = Point { x: 1.0, y: 2.0 };
   | QualifierReference   -- math in math::calculate.
   | ImportReference      -- calculate in use math::calculate.
   | ConstructorReference -- Point in Point { x: 1 }.
@@ -189,15 +188,8 @@ record SymbolReference where
 
 --------------------------------------------------------------------------------
 -- Scope information
---
 -- Scope data live in a scope tree / resolver output, not directly on every AST node.
 --------------------------------------------------------------------------------
-
-public export
-data ScopeOrigin          -- Describes how the entire scope was created.
-  = SourceScope AstInfo   -- A source-backed lexical scope or member namespace.
-  | PreludeScope          -- The compiler-created scope containing names made available by the language prelude.
-  | ExternalModuleScope   -- The scope representing the exported namespace of a module defined outside this source file.
 
 public export
 data BindingKind     -- Describes how one particular name entered that scope.
@@ -212,11 +204,13 @@ record ScopeBinding where
   introducedAt      : Maybe SourceSpan
   target            : SymbolId
   bindingKind       : BindingKind
-  -- Controls access through this binding, independently of the target's declaration visibility.
-  -- ModuleVisibility is relative to the module containing this binding's scope,
-  -- not the target symbol's declaringModule. A private use of a public symbol
-  -- therefore keeps the imported name private without changing the target symbol.
-  bindingVisibility : SymbolVisibility
+  bindingVisibility : SymbolVisibility  -- public/private import can change visibilty from the declared target visibility
+
+public export
+data ScopeOrigin          -- Describes how the entire scope was created.
+  = SourceScope AstInfo   -- A source-backed lexical scope or member namespace.
+  | PreludeScope          -- The compiler-created scope containing names made available by the language prelude.
+  | ExternalModuleScope   -- The scope representing the exported namespace of a module defined outside this source file.
 
 public export
 data ScopeKind
@@ -233,25 +227,11 @@ record ScopeInfo where
   constructor MkScopeInfo
   id                      : ScopeId
   kind                    : ScopeKind
-  -- Lexical/enclosing context, not member ownership. Unqualified lookup may
-  -- follow this link subject to the language's scope and capture rules.
-  -- Member ownership is recorded separately by the module's memberScopes table,
-  -- which maps an owning SymbolId to the ScopeId used for qualified lookup.
-  -- Qualified lookup searches the appropriate name map in that scope without
-  -- falling back through parent: Point::missing must not find an enclosing
-  -- module's unrelated missing declaration.
-  -- A module's memberScopes entry can reuse its existing ModuleScope; it does
-  -- not need a second scope solely for qualified lookup.
-  parent                  : Maybe ScopeId
+  parent                  : Maybe ScopeId                  -- not used for tracking member ownership
   origin                  : ScopeOrigin
-  -- Each name map holds one binding per spelling. When same-scope shadowing is
-  -- allowed, the newer binding replaces the entry; the completed map is not a
-  -- history of which binding was visible at each source position. Resolve each
-  -- occurrence in the environment valid there and preserve its target SymbolId
-  -- in the AST/reference table, so later shadowing cannot change earlier uses.
-  -- declaredSymbolsInOrder alone does not reconstruct those earlier environments;
-  -- source-position lookup would need binding history or scope snapshots.
-  typeBindings           : SortedMap String ScopeBinding
-  valueBindings          : SortedMap String ScopeBinding
-  fieldBindings          : SortedMap String ScopeBinding   -- Rust treats fields separately from ordinary namespaces
+  -- Each map holds one binding per spelling. Newer bindings replace existing
+  -- entries. Use references in ResolvedModule/TypedModule to retrieve all bindings.
+  typeBindings           : SortedMap String ScopeBinding   -- Structs, enums, traits, type aliases, modules
+  valueBindings          : SortedMap String ScopeBinding   -- Variables, constants, statics, functions
+  fieldBindings          : SortedMap String ScopeBinding   -- Fields resolved through the containing type
   declaredSymbolsInOrder : SnocList SymbolId
