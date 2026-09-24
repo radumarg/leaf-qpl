@@ -37,7 +37,7 @@ jobs:
           max_attempts=3
           attempt=1
           while [ "$attempt" -le "$max_attempts" ]; do
-            if pack test leaf; then
+            if pack -v test leaf; then
               exit 0
             fi
 
