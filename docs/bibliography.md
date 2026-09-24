@@ -104,3 +104,20 @@
 
 <a id="heunen-2026-quantum-circuits-are-just-a-phase"></a>
 - **Heunen, C., Lemonnier, L., McNally, C., & Rice, A.** (2026). Quantum Circuits Are Just a Phase. *Proceedings of the ACM on Programming Languages* 10(POPL), Article 89, pp. 2586–2613. DOI: [10.1145/3776731](https://doi.org/10.1145/3776731). [arXiv:2507.11676](https://arxiv.org/abs/2507.11676).
+
+
+Entanglement and type systems (scratch)
+
+* **Perdrix, S.** (2008). Quantum Entanglement Analysis Based on Abstract Interpretation. In M. Alpuente & G. Vidal (Eds.), *Static Analysis — SAS 2008*. *Lecture Notes in Computer Science* 5079, pp. 270–282. Springer. DOI: [10.1007/978-3-540-69166-2_18](https://doi.org/10.1007/978-3-540-69166-2_18). [arXiv:0801.4230](https://arxiv.org/abs/0801.4230).
+
+* **Honda, K.** (2015). Analysis of Quantum Entanglement in Quantum Programs using Stabilizer Formalism. In *Proceedings of the 12th International Workshop on Quantum Physics and Logic (QPL 2015)*. *Electronic Proceedings in Theoretical Computer Science* 195, pp. 262–272. DOI: [10.4204/EPTCS.195.19](https://doi.org/10.4204/EPTCS.195.19). [arXiv:1511.01572](https://arxiv.org/abs/1511.01572).
+
+* **Yu, N., & Palsberg, J.** (2021). Quantum Abstract Interpretation. In *Proceedings of the 42nd ACM SIGPLAN International Conference on Programming Language Design and Implementation (PLDI 2021)*, pp. 542–558. Association for Computing Machinery. DOI: [10.1145/3453483.3454061](https://doi.org/10.1145/3453483.3454061). [PDF](https://web.cs.ucla.edu/~palsberg/paper/pldi21-quantum.pdf).
+
+* **Yuan, C., McNally, C., & Carbin, M.** (2022). Twist: Sound Reasoning for Purity and Entanglement in Quantum Programs. *Proceedings of the ACM on Programming Languages* 6(POPL), Article 30, pp. 1–32. DOI: [10.1145/3498691](https://doi.org/10.1145/3498691). [arXiv:2205.02287](https://arxiv.org/abs/2205.02287).
+
+* **Rand, R., Sundaram, A., Singhal, K., & Lackey, B.** (2021). Gottesman Types for Quantum Programs. In *Proceedings of the 17th International Conference on Quantum Physics and Logic (QPL 2020)*. *Electronic Proceedings in Theoretical Computer Science* 340, pp. 279–290. DOI: [10.4204/EPTCS.340.14](https://doi.org/10.4204/EPTCS.340.14). [arXiv:2109.02197](https://arxiv.org/abs/2109.02197). Expanded version: *Static Analysis of Quantum Programs via Gottesman Types*, [arXiv:2101.08939](https://arxiv.org/abs/2101.08939).
+
+* **Le, X.-B., Lin, S.-W., Sun, J., & Sanan, D.** (2022). A Quantum Interpretation of Separating Conjunction for Local Reasoning of Quantum Programs Based on Separation Logic. *Proceedings of the ACM on Programming Languages* 6(POPL), Article 36, pp. 1–27. DOI: [10.1145/3498697](https://doi.org/10.1145/3498697). [PDF](https://lexuanbach.github.io/publication/POPL2022.pdf).
+
+* **Zhou, L., Barthe, G., Hsu, J., Ying, M., & Yu, N.** (2021). A Quantum Interpretation of Bunched Logic & Quantum Separation Logic. In *Proceedings of the 36th Annual ACM/IEEE Symposium on Logic in Computer Science (LICS 2021)*, pp. 1–14. IEEE. DOI: [10.1109/LICS52264.2021.9470673](https://doi.org/10.1109/LICS52264.2021.9470673). [arXiv:2102.00329](https://arxiv.org/abs/2102.00329).

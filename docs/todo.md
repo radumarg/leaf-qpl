@@ -1,7 +1,7 @@
 
 ### Features Pending Implementation
 
-This document compiles a lists of features which are covered by the [language documentation](README.md) but not yet planned for the alpha release.
+This document compiles a list of features which are covered by the [language documentation](README.md) but not yet planned for the alpha release.
 
 Higher priority:
 
@@ -9,16 +9,14 @@ Higher priority:
 - Lean 4 code generation.
 - Uncomputation support.
 - `affine` & `scratch` qubits.
-- Quantum Boolean data (aka Qubits) and Boolean coherent operations.
-- Signed/Unsigned quantum integers and quantum arithmetic.
-- Signed/Unsigned quantum fixed point numbers and (quantum) operations.
+- Quantum Boolean data and Boolean coherent operations.
+- Signed/unsigned quantum integers and quantum arithmetic.
 - Arrays, tuples formed from the 3 above.
 - Quantum contracts.
- 
+
 Other:
 
 - Rust style slices.
-- Recursion.
 - Quantum conditionals.
   - `qif`+`qelse` & `qmatch`.
   - `sif`+`selse` & `smatch`.
@@ -26,6 +24,8 @@ Other:
   - `enum`
   - `qenum`
   - `struct` + `impl` blocks.
+- Recursion.
+- Recursive data structures.
 - Documentation comments.
 - Classical subroutines.
 - Prelude math functions.
