@@ -1,6 +1,8 @@
 module Compiler.ScopeAndNameResolution.Resolve
 
+import Control.Monad.State
 import Compiler.ScopeAndNameResolution.Data
+import Compiler.ScopeAndNameResolution.Helper
 import Data.List1
 import Data.SortedMap
 import Frontend.ASTData
@@ -343,59 +345,63 @@ resolveFunctionBody (MkAstNode functionBodyAstInfo (MkProvenanceMetadata provena
       (map resolveStatement blockStatements)
       (map resolveExpression finalExpression)
 
-resolveItem : CanonicalItem -> ResolvedItem
-resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) =
-  resolveNode itemInfo (MkProvenanceMetadata provenance) $
-    case item of
-      ItemModule declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemModule not implemented."
-      ItemUse declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemUse not implemented."
-      ItemConst declaration => ItemConst $ resolveConstDeclaration declaration
-      ItemEnum declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemEnum not implemented"
-      ItemQEnum declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemQEnum not implemented"
-      ItemStruct declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemStruct not implemented"
-      ItemImpl declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemImpl not implemented"
-      ItemFunction declaration => ItemFunction $ resolveFunctionDeclaration declaration
-    where
-      resolveConstDeclaration : ConstDeclarationNode CanonicalAstPhase -> ConstDeclarationNode ResolvedAstPhase
-      resolveConstDeclaration
-          (MkConstDeclarationNode
-            constDocs
-            constVisibility
-            (MkAstNode constNameInfo constNameMetadata constNameNode)
-            constType
-            constValue) =
-              MkConstDeclarationNode
-                (map resolveAstNode constDocs)
-                (map resolveAstNode constVisibility)
-                (resolveName (MkAstNode constNameInfo constNameMetadata constNameNode))
-                (resolveType constType)
-                (resolveExpression constValue)
-      resolveFunctionDeclaration : FunctionDeclarationNode CanonicalAstPhase -> FunctionDeclarationNode ResolvedAstPhase
-      resolveFunctionDeclaration
-          (MkFunctionDeclarationNode
-            functionDocs
-            functionAttributes
-            functionVisibility
-            functionConstness
-            functionEffect
-            functionName
-            functionParameters
-            returnType
-            supportClause
-            contractClauses
-            functionBody
-          ) = MkFunctionDeclarationNode
-                (map resolveAstNode functionDocs)
-                (map resolveAttribute functionAttributes)
-                (map resolveAstNode functionVisibility)
-                (map resolveAstNode functionConstness)
-                (map resolveAstNode functionEffect)
-                (resolveName functionName)
-                (map resolveFunctionParameter functionParameters)
-                (map resolveType returnType)
-                (map resolveAstNode supportClause)
-                (map resolveContractClause contractClauses)
-                (resolveFunctionBody functionBody)
+resolveItem : CanonicalItem -> State ScopeTables ResolvedItem
+resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) = do
+     resolvedItem <- case item of
+       ItemModule declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemModule not implemented."
+       ItemUse declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemUse not implemented."
+       ItemConst declaration => do
+         resolvedDeclaration <- resolveConstDeclaration declaration
+         pure $ ItemConst resolvedDeclaration
+       ItemEnum declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemEnum not implemented"
+       ItemQEnum declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemQEnum not implemented"
+       ItemStruct declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemStruct not implemented"
+       ItemImpl declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemImpl not implemented"
+       ItemFunction declaration => do
+         resolvedDeclaration <- resolveFunctionDeclaration declaration
+         pure $ ItemFunction resolvedDeclaration
+     pure (resolveNode itemInfo (MkProvenanceMetadata provenance) resolvedItem)
+     where
+       resolveConstDeclaration : ConstDeclarationNode CanonicalAstPhase -> State ScopeTables (ConstDeclarationNode ResolvedAstPhase)
+       resolveConstDeclaration = ?xxx
+--           (MkConstDeclarationNode
+--             constDocs
+--             constVisibility
+--             (MkAstNode constNameInfo constNameMetadata constNameNode)
+--             constType
+--             constValue) =
+--               MkConstDeclarationNode
+--                 (map resolveAstNode constDocs)
+--                 (map resolveAstNode constVisibility)
+--                 (resolveName (MkAstNode constNameInfo constNameMetadata constNameNode))
+--                 (resolveType constType)
+--                 (resolveExpression constValue)
+       resolveFunctionDeclaration : FunctionDeclarationNode CanonicalAstPhase -> State ScopeTables (FunctionDeclarationNode ResolvedAstPhase)
+       resolveFunctionDeclaration = ?xxx2
+--           (MkFunctionDeclarationNode
+--             functionDocs
+--             functionAttributes
+--             functionVisibility
+--             functionConstness
+--             functionEffect
+--             functionName
+--             functionParameters
+--             returnType
+--             supportClause
+--             contractClauses
+--             functionBody
+--           ) = MkFunctionDeclarationNode
+--                 (map resolveAstNode functionDocs)
+--                 (map resolveAttribute functionAttributes)
+--                 (map resolveAstNode functionVisibility)
+--                 (map resolveAstNode functionConstness)
+--                 (map resolveAstNode functionEffect)
+--                 (resolveName functionName)
+--                 (map resolveFunctionParameter functionParameters)
+--                 (map resolveType returnType)
+--                 (map resolveAstNode supportClause)
+--                 (map resolveContractClause contractClauses)
+--                 (resolveFunctionBody functionBody)
 
 
 -- creates a scope for modules, functions, blocks and similar constructs;
@@ -407,21 +413,18 @@ resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) =
 -- detects duplicate declarations;
 -- reports unknown or ambiguous names.
 
--- ExprParenthesized, PatternParenthesized, TyParenthesized should dissapear
 resolveCanonicalSyntax : CanonicalSourceFile -> Either ResolutionError ResolvedModule
 resolveCanonicalSyntax
     (MkAstNode fileInfo (MkProvenanceMetadata provenance) (MkSourceFileNode docs items)) =
-  Right $
+  let
+    emptyScopeTables = MkScopeTables empty empty empty empty empty empty
+    (scopeTables, resolvedItems) = runState emptyScopeTables (traverse resolveItem items)
+    resolvedDocs = map resolveAstNode docs
+  in Right $
     MkResolvedModule
       (MkSymbolId 0)
       (MkScopeId 0)
       (resolveNode fileInfo (MkProvenanceMetadata provenance) $
-        MkSourceFileNode
-          (map resolveAstNode docs)
-          (map resolveItem items))
-      empty
-      empty
-      empty
-      empty
-      empty
-      empty
+        MkSourceFileNode resolvedDocs resolvedItems)
+      scopeTables
+    
