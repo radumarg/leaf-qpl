@@ -15,9 +15,9 @@ ResolvedSymbolInfo : Type
 ResolvedSymbolInfo = SymbolInfo ()
 
 public export
-data LocalMutability
-  = ImmutableLocal
-  | MutableLocal
+data VariableMutability
+  = ImmutableVariable
+  | MutableVariable
 
 public export
 data QubitStorageStatus
@@ -28,7 +28,7 @@ data QubitStorageStatus
 public export
 record LocalVariableInfo where
   constructor MkLocalVariableInfo
-  mutability     : LocalMutability
+  mutability     : VariableMutability
   quantumStorage : QubitStorageStatus
 
 public export
