@@ -1,9 +1,9 @@
 module Frontend.ASTData
 
-import Frontend.Source
-
 import Data.SortedMap
 import Data.SnocList
+
+import Frontend.Source
 
 %default total
 
@@ -114,7 +114,8 @@ record AstInfo where
   span   : SourceSpan
 
 --------------------------------------------------------------------------------
--- Symbol information
+-- Symbol information, symbol Id is saved in the AST tree under Name node
+-- but comprehensive symbol info can be found in a scope tables.
 --------------------------------------------------------------------------------
 
 -- The declaration or binding category denoted by a SymbolId.

@@ -41,7 +41,6 @@ record ScopeTables where
   scopes         : SortedMap ScopeId ScopeInfo
   memberScopes   : SortedMap SymbolId ScopeId               -- I have Point’s SymbolId. Which ScopeId contains its members?
 
-
 public export
 record ResolvedModule where
   constructor MkResolvedModule
@@ -49,7 +48,6 @@ record ResolvedModule where
   rootScope      : ScopeId
   ast            : ResolvedSourceFile
   tables         : ScopeTables
-
 
 public export
 data ResolutionError

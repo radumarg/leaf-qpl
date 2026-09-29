@@ -454,7 +454,7 @@ resolveFunctionBody (MkAstNode functionBodyAstInfo (MkProvenanceMetadata provena
       resolvedBlockStatement 
       resolvedFinalExpression  
 
-resolveItem : CanonicalItem -> State ScopeTables ResolvedItem
+resolveItem : CanonicalItem -> State ScopeTables (Either ResolutionError ResolvedItem)
 resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) = do
   resolvedItem <- case item of
     ItemModule declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemModule not implemented."
@@ -469,7 +469,7 @@ resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) = do
     ItemFunction declaration => do
       resolvedDeclaration <- resolveFunctionDeclaration declaration
       pure $ ItemFunction resolvedDeclaration
-  pure $ resolveNode itemInfo (MkProvenanceMetadata provenance) resolvedItem
+  pure $ Right $ resolveNode itemInfo (MkProvenanceMetadata provenance) resolvedItem
   where
     resolveConstDeclaration : ConstDeclarationNode CanonicalAstPhase -> State ScopeTables (ConstDeclarationNode ResolvedAstPhase)
     resolveConstDeclaration
@@ -530,14 +530,27 @@ resolveCanonicalSyntax : CanonicalSourceFile -> Either ResolutionError ResolvedM
 resolveCanonicalSyntax
     (MkAstNode fileInfo (MkProvenanceMetadata provenance) (MkSourceFileNode docs items)) =
   let
+    parentScopeId = Nothing
+    moduleScopeId = MkScopeId 0
+    moduleSymbolId = MkSymbolId 0
+    moduleScopeInfo = MkScopeInfo moduleScopeId ModuleScope parentScopeId (SourceScope fileInfo) empty empty empty [<]
     emptyScopeTables = MkScopeTables empty empty empty empty empty empty
-    (scopeTables, resolvedItems) = runState emptyScopeTables (traverse resolveItem items)
+    initialScopeTables =
+    {
+      nodeScopes := insert fileInfo.nodeId moduleScopeId emptyScopeTables.nodeScopes,
+      scopes := insert moduleScopeId moduleScopeInfo emptyScopeTables.scopes,
+      memberScopes := insert moduleSymbolId moduleScopeId emptyScopeTables.memberScopes
+    } emptyScopeTables
+    (scopeTables, itemResults) = runState initialScopeTables (traverse resolveItem items)
     resolvedDocs = map resolveAstNode docs
-  in Right $
-    MkResolvedModule
-      (MkSymbolId 0)
-      (MkScopeId 0)
-      (resolveNode fileInfo (MkProvenanceMetadata provenance) $
-        MkSourceFileNode resolvedDocs resolvedItems)
-      scopeTables
-    
+  in
+    case traverse id itemResults of
+      Left error => Left error
+      Right resolvedItems =>
+        Right $
+          MkResolvedModule
+            moduleSymbolId
+            moduleScopeId
+            (resolveNode fileInfo (MkProvenanceMetadata provenance) $
+              MkSourceFileNode resolvedDocs resolvedItems)
+            scopeTables
