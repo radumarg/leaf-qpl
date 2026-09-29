@@ -1,4 +1,4 @@
-module Frontend.Syntax.ASTDebugPrinter
+module Frontend.Utils.ASTDebugPrinter
 
 import Data.List1
 

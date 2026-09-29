@@ -1,4 +1,4 @@
-module Frontend.Syntax.ASTPrettyPrinter
+module Frontend.Utils.ASTPrettyPrinter
 
 import Data.List1
 
