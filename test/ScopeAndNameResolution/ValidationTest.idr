@@ -55,6 +55,7 @@ validModule = MkResolvedModule
   (MkScopeId 0)
   (resolvedAstNode (info 0) WrittenCode (MkSourceFileNode [] []))
   (MkScopeTables
+    (MkScopeId 0)
     (fromList [(MkNodeId 0 0, MkScopeId 0), (MkNodeId 10 0, MkScopeId 1)])
     (fromList [(MkSymbolId 0, rootSymbol), (MkSymbolId 1, localSymbol)])
     (fromList [(MkSymbolId 1, MkLocalVariableInfo ImmutableVariable NotQubitLocal)])

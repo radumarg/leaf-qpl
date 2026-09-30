@@ -27,7 +27,7 @@ resolveNode astInfo (MkProvenanceMetadata provenance) =
 resolveAstNode : {a : Type} -> AstNode CanonicalAstPhase a -> AstNode ResolvedAstPhase a
 resolveAstNode (MkAstNode docInfo (MkProvenanceMetadata provenance) value) = resolveNode docInfo (MkProvenanceMetadata provenance) value
 
-resolveName : CanonicalName -> State ScopeTables ResolvedName
+resolveName : CanonicalName -> StateT ScopeTables (Either ResolutionError) ResolvedName
 resolveName (MkAstNode nameInfo (MkProvenanceMetadata provenance) (MkNameNode nameText)) = do
   pure $ resolveNode nameInfo (MkProvenanceMetadata provenance) $
     MkResolvedNameNode nameText (MkSymbolId nameInfo.nodeId.surfaceId) -- TODO REVIEW
@@ -72,7 +72,7 @@ resolvePath (MkAstNode pathAstInfo (MkProvenanceMetadata provenance) (MkPathNode
     pathSegmentText (MkAstNode _ _ (PathSegmentName text)) = text
     pathSegmentText (MkAstNode _ _ PathSegmentSelf) = "self"
 
-resolvePattern : CanonicalPattern -> State ScopeTables ResolvedPattern
+resolvePattern : CanonicalPattern -> StateT ScopeTables (Either ResolutionError) ResolvedPattern
 resolvePattern (MkAstNode patternInfo (MkProvenanceMetadata provenance) patternNode) = do
   resolvedPatternNode <- case patternNode of
     PatternWildcard =>
@@ -100,11 +100,11 @@ resolvePattern (MkAstNode patternInfo (MkProvenanceMetadata provenance) patternN
       pure $ PatternEnumTuple (resolvePath variantPath) resolvedArguments
   pure $ resolveNode patternInfo (MkProvenanceMetadata provenance) resolvedPatternNode
   where
-    recur : CanonicalPattern -> State ScopeTables ResolvedPattern
+    recur : CanonicalPattern -> StateT ScopeTables (Either ResolutionError) ResolvedPattern
     recur pattern =
       resolvePattern (assert_smaller patternNode pattern)
 
-    resolveStructPatternField : CanonicalStructPatternField -> State ScopeTables ResolvedStructPatternField
+    resolveStructPatternField : CanonicalStructPatternField -> StateT ScopeTables (Either ResolutionError) ResolvedStructPatternField
     resolveStructPatternField (MkAstNode fieldInfo (MkProvenanceMetadata provenance) fieldNode) = do
       resolvedFieldNode <- case fieldNode of
         StructPatternFieldShorthand mutability fieldAndBinderName => do
@@ -117,7 +117,7 @@ resolvePattern (MkAstNode patternInfo (MkProvenanceMetadata provenance) patternN
       pure $ resolveNode fieldInfo (MkProvenanceMetadata provenance) resolvedFieldNode
 
 mutual
-  resolveExpressionNode : ExpressionNode CanonicalAstPhase -> State ScopeTables (ExpressionNode ResolvedAstPhase)
+  resolveExpressionNode : ExpressionNode CanonicalAstPhase -> StateT ScopeTables (Either ResolutionError) (ExpressionNode ResolvedAstPhase)
   resolveExpressionNode expression =
     case expression of
       ExprLiteral literal => pure $ ExprLiteral (resolveAstNode literal)
@@ -209,11 +209,11 @@ mutual
         resolvedAdjoint <- resolveAdjointExpressionNode adjoint
         pure $ ExprAdjoint resolvedAdjoint
     where
-      resolveNestedExpression : CanonicalExpr -> State ScopeTables ResolvedExpr
+      resolveNestedExpression : CanonicalExpr -> StateT ScopeTables (Either ResolutionError) ResolvedExpr
       resolveNestedExpression nestedExpression =
         resolveExpression (assert_smaller expression nestedExpression)
 
-      resolveBlockExpression : CanonicalBlock -> State ScopeTables ResolvedBlock
+      resolveBlockExpression : CanonicalBlock -> StateT ScopeTables (Either ResolutionError) ResolvedBlock
       resolveBlockExpression
         (MkAstNode blockAstInfo (MkProvenanceMetadata provenance) (MkBlockNode blockInnerDocs blockStatements finalExpression)) = do
         resolvedStatements <- traverse (\statement => resolveStatement (assert_smaller expression statement)) blockStatements
@@ -224,14 +224,14 @@ mutual
             resolvedStatements
             resolvedFinalExpression
 
-      resolveIfNode : ClassicalIfNode CanonicalAstPhase -> State ScopeTables (ClassicalIfNode ResolvedAstPhase)
+      resolveIfNode : ClassicalIfNode CanonicalAstPhase -> StateT ScopeTables (Either ResolutionError) (ClassicalIfNode ResolvedAstPhase)
       resolveIfNode ifNode@(MkClassicalIfNode ifCondition ifThenBlock ifElseBranch) = do
         resolvedCondition <- resolveNestedExpression ifCondition
         resolvedThenBlock <- resolveBlockExpression ifThenBlock
         resolvedElseBranch <- traverse resolveElseNode ifElseBranch
         pure $ MkClassicalIfNode resolvedCondition resolvedThenBlock resolvedElseBranch
         where
-          resolveElseNode : ClassicalElseNode CanonicalAstPhase -> State ScopeTables (ClassicalElseNode ResolvedAstPhase)
+          resolveElseNode : ClassicalElseNode CanonicalAstPhase -> StateT ScopeTables (Either ResolutionError) (ClassicalElseNode ResolvedAstPhase)
           resolveElseNode (ElseBlock elseBlock) = do
             resolvedElseBlock <- resolveBlockExpression elseBlock
             pure $ ElseBlock resolvedElseBlock
@@ -240,7 +240,7 @@ mutual
             pure $ ElseChainedIf $
               resolveNode chainedIfInfo (MkProvenanceMetadata provenance) resolvedIfNode
 
-      resolveControlExpressionNode : ControlExpressionNode CanonicalAstPhase -> State ScopeTables (ControlExpressionNode ResolvedAstPhase)
+      resolveControlExpressionNode : ControlExpressionNode CanonicalAstPhase -> StateT ScopeTables (Either ResolutionError) (ControlExpressionNode ResolvedAstPhase)
       resolveControlExpressionNode (ControlledCallable controlQubits onBasisRaw controlledCallable) = do
         resolvedControlQubits <- traverse resolveNestedExpression controlQubits
         resolvedCallable <- resolveNestedExpression controlledCallable
@@ -256,7 +256,7 @@ mutual
           (map resolveAstNode onBasisRaw)
           resolvedBlock
 
-      resolveAdjointExpressionNode : AdjointExpressionNode CanonicalAstPhase -> State ScopeTables (AdjointExpressionNode ResolvedAstPhase)
+      resolveAdjointExpressionNode : AdjointExpressionNode CanonicalAstPhase -> StateT ScopeTables (Either ResolutionError) (AdjointExpressionNode ResolvedAstPhase)
       resolveAdjointExpressionNode (AdjointOfCallable adjointedCallable) = do
         resolvedCallable <- resolveNestedExpression adjointedCallable
         pure $ AdjointOfCallable resolvedCallable
@@ -264,12 +264,12 @@ mutual
         resolvedBlock <- resolveBlockExpression adjointedBlock
         pure $ AdjointBlock resolvedBlock
 
-  resolveExpression : CanonicalExpr ->  State ScopeTables ResolvedExpr
+  resolveExpression : CanonicalExpr ->  StateT ScopeTables (Either ResolutionError) ResolvedExpr
   resolveExpression (MkAstNode expressionInfo (MkProvenanceMetadata provenance) expressionNode) = do
     resolvedExpressionNode <- resolveExpressionNode expressionNode
     pure $ resolveNode expressionInfo (MkProvenanceMetadata provenance) resolvedExpressionNode
 
-  resolveType : Ty CanonicalAstPhase (Expr CanonicalAstPhase) ->  State ScopeTables (Ty ResolvedAstPhase (Expr ResolvedAstPhase))
+  resolveType : Ty CanonicalAstPhase (Expr CanonicalAstPhase) ->  StateT ScopeTables (Either ResolutionError) (Ty ResolvedAstPhase (Expr ResolvedAstPhase))
   resolveType (MkAstNode tyAstInfo (MkProvenanceMetadata provenance) typeNode) = do
     resolvedType <- case typeNode of
         TyPrimitive primitiveName => do
@@ -311,10 +311,10 @@ mutual
             resolvedReturnType
     pure $ resolveNode tyAstInfo (MkProvenanceMetadata provenance) resolvedType
       where
-        resolveNestedType : CanonicalTy -> State ScopeTables ResolvedTy
+        resolveNestedType : CanonicalTy -> StateT ScopeTables (Either ResolutionError) ResolvedTy
         resolveNestedType nestedType = resolveType (assert_smaller typeNode nestedType)
         resolveParameter : CanonicalAstNode (FunctionTypeParameterNode CanonicalAstPhase (CanonicalAstNode (ExpressionNode CanonicalAstPhase))) ->
-           State ScopeTables $ ResolvedAstNode (FunctionTypeParameterNode ResolvedAstPhase (ResolvedAstNode (ExpressionNode ResolvedAstPhase)))
+           StateT ScopeTables (Either ResolutionError) $ ResolvedAstNode (FunctionTypeParameterNode ResolvedAstPhase (ResolvedAstNode (ExpressionNode ResolvedAstPhase)))
         resolveParameter (MkAstNode parameterAstInfo (MkProvenanceMetadata provenance) (MkFunctionTypeParameterNode parameterName parameterType)) = do
           resolvedNestedType <- resolveNestedType parameterType
           pure $ resolveNode parameterAstInfo (MkProvenanceMetadata provenance) $
@@ -324,7 +324,7 @@ mutual
             MkFunctionTypeParameterNode (resolveAstNode parameterName) resolvedNestedType
 
   resolveFunctionParameter: AstNode CanonicalAstPhase (FunctionParameterNode CanonicalAstPhase) ->  
-                            State ScopeTables (AstNode ResolvedAstPhase (FunctionParameterNode ResolvedAstPhase))
+                            StateT ScopeTables (Either ResolutionError) (AstNode ResolvedAstPhase (FunctionParameterNode ResolvedAstPhase))
   resolveFunctionParameter (MkAstNode parameterInfo (MkProvenanceMetadata provenance) (NormalParameter parameterDocs parameterMutability parameterName parameterType)) = do
     resolvedParameterName <- resolveName parameterName
     resolvedParameterType <- resolveType parameterType
@@ -340,12 +340,12 @@ mutual
         (map resolveAstNode receiverDocs)
         (map resolveAstNode receiverBorrow)
 
-  resolveSignedPauliTerm : SignedPauliTerm CanonicalAstPhase -> State ScopeTables (SignedPauliTerm ResolvedAstPhase)
+  resolveSignedPauliTerm : SignedPauliTerm CanonicalAstPhase -> StateT ScopeTables (Either ResolutionError) (SignedPauliTerm ResolvedAstPhase)
   resolveSignedPauliTerm (MkAstNode termInfo (MkProvenanceMetadata provenance) (MkSignedPauliTermNode sign pauliString)) = do
     pure $ resolveNode termInfo (MkProvenanceMetadata provenance) $
       MkSignedPauliTermNode sign (resolveAstNode pauliString)
 
-  resolveContractPredicate : CanonicalContractPredicate -> State ScopeTables ResolvedContractPredicate
+  resolveContractPredicate : CanonicalContractPredicate -> StateT ScopeTables (Either ResolutionError) ResolvedContractPredicate
   resolveContractPredicate (MkAstNode predicateInfo (MkProvenanceMetadata provenance) predicateNode) = do 
     resolvedContract <- case predicateNode of
       ContractClean qubitArgument => do
@@ -376,7 +376,7 @@ mutual
           resolvedStabilizerTerms
     pure $ resolveNode predicateInfo (MkProvenanceMetadata provenance) resolvedContract
 
-  resolveContractClause : ContractClause CanonicalAstPhase (Expr CanonicalAstPhase) -> State ScopeTables (ContractClause ResolvedAstPhase (Expr ResolvedAstPhase)) 
+  resolveContractClause : ContractClause CanonicalAstPhase (Expr CanonicalAstPhase) -> StateT ScopeTables (Either ResolutionError) (ContractClause ResolvedAstPhase (Expr ResolvedAstPhase))
   resolveContractClause (MkAstNode contractAstInfo (MkProvenanceMetadata provenance) contractClauseNode) = do
     resolvedClause <- case contractClauseNode of
         RequiresClause predicate => do
@@ -387,12 +387,12 @@ mutual
           pure $ EnsuresClause resolvedContractPredicate 
     pure $ resolveNode contractAstInfo (MkProvenanceMetadata provenance) resolvedClause 
 
-  resolveLetInitializer : LetInitializerNode CanonicalAstPhase -> State ScopeTables (LetInitializerNode ResolvedAstPhase)
+  resolveLetInitializer : LetInitializerNode CanonicalAstPhase -> StateT ScopeTables (Either ResolutionError) (LetInitializerNode ResolvedAstPhase)
   resolveLetInitializer (MkLetInitializerNode marker value) = do
     resolvedValue <- resolveExpression value
     pure $ MkLetInitializerNode (resolveAstNode marker) resolvedValue
 
-  resolveAssignmentTarget : CanonicalAstNode (AssignmentTargetNode CanonicalAstPhase) -> State ScopeTables (ResolvedAstNode (AssignmentTargetNode ResolvedAstPhase))
+  resolveAssignmentTarget : CanonicalAstNode (AssignmentTargetNode CanonicalAstPhase) -> StateT ScopeTables (Either ResolutionError) (ResolvedAstNode (AssignmentTargetNode ResolvedAstPhase))
   resolveAssignmentTarget (MkAstNode assignmentTargetAstInfo (MkProvenanceMetadata provenance) assignmentTargetNode) = do 
     resolvedAssigmentTarget <- case assignmentTargetNode of 
       AssignTargetName targetName => do
@@ -416,7 +416,7 @@ mutual
           tupleIndexRawText
     pure (resolveNode assignmentTargetAstInfo (MkProvenanceMetadata provenance) resolvedAssigmentTarget)
 
-  resolveStatement : Statement CanonicalAstPhase ->  State ScopeTables (Statement ResolvedAstPhase)
+  resolveStatement : Statement CanonicalAstPhase ->  StateT ScopeTables (Either ResolutionError) (Statement ResolvedAstPhase)
   resolveStatement (MkAstNode statementAstInfo (MkProvenanceMetadata provenance) statementNode) = do
     resolvedStatementNode <- case statementNode of
         StatementLet (MkLetBindingNode qualifiers pattern typeAnnotation initializer) => do
@@ -445,7 +445,7 @@ mutual
           pure $ StatementExpression resolvedExpression
     pure (resolveNode statementAstInfo (MkProvenanceMetadata provenance) resolvedStatementNode)
  
-resolveFunctionBody : Block CanonicalAstPhase ->  State ScopeTables (Block ResolvedAstPhase)
+resolveFunctionBody : Block CanonicalAstPhase ->  StateT ScopeTables (Either ResolutionError) (Block ResolvedAstPhase)
 resolveFunctionBody (MkAstNode functionBodyAstInfo (MkProvenanceMetadata provenance) (MkBlockNode blockInnerDocs blockStatements finalExpression)) = do
   resolvedBlockStatement <- traverse resolveStatement blockStatements
   resolvedFinalExpression <- traverse resolveExpression finalExpression 
@@ -454,7 +454,7 @@ resolveFunctionBody (MkAstNode functionBodyAstInfo (MkProvenanceMetadata provena
       resolvedBlockStatement 
       resolvedFinalExpression  
 
-resolveItem : CanonicalItem -> State ScopeTables (Either ResolutionError ResolvedItem)
+resolveItem : CanonicalItem -> StateT ScopeTables (Either ResolutionError) ResolvedItem
 resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) = do
   resolvedItem <- case item of
     ItemModule declaration => assert_total $ idris_crash "Resolve.idr: resolveItem: ItemModule not implemented."
@@ -469,14 +469,18 @@ resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) = do
     ItemFunction declaration => do
       resolvedDeclaration <- resolveFunctionDeclaration declaration
       pure $ ItemFunction resolvedDeclaration
-  pure $ Right $ resolveNode itemInfo (MkProvenanceMetadata provenance) resolvedItem
+  pure $ resolveNode itemInfo (MkProvenanceMetadata provenance) resolvedItem
   where
-    resolveConstDeclaration : ConstDeclarationNode CanonicalAstPhase -> State ScopeTables (ConstDeclarationNode ResolvedAstPhase)
-    resolveConstDeclaration
-        (MkConstDeclarationNode constDocs constVisibility constName constType constValue) = do
+    resolveConstDeclaration : ConstDeclarationNode CanonicalAstPhase -> StateT ScopeTables (Either ResolutionError) (ConstDeclarationNode ResolvedAstPhase)
+    resolveConstDeclaration (MkConstDeclarationNode constDocs constVisibility constName constType constValue) = do
+      scopeTables <- get
       resolvedConstName <- resolveName constName
       resolvedConstType <- resolveType constType
       resolvedConstValue <- resolveExpression constValue
+      let constNameSymbolId = scopeTables.nextSymbolId
+--      scopeTables =
+--      {
+--      } scopeTables
       pure $ MkConstDeclarationNode
         (map resolveAstNode constDocs)
         (map resolveAstNode constVisibility)
@@ -484,7 +488,7 @@ resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) = do
         resolvedConstType
         resolvedConstValue
 
-    resolveFunctionDeclaration : FunctionDeclarationNode CanonicalAstPhase -> State ScopeTables (FunctionDeclarationNode ResolvedAstPhase)
+    resolveFunctionDeclaration : FunctionDeclarationNode CanonicalAstPhase -> StateT ScopeTables (Either ResolutionError) (FunctionDeclarationNode ResolvedAstPhase)
     resolveFunctionDeclaration
         (MkFunctionDeclarationNode
           functionDocs
@@ -498,6 +502,7 @@ resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) = do
           supportClause
           contractClauses
           functionBody) = do
+      scopeTables <- get
       resolvedFunctionName <- resolveName functionName
       resolvedParameters <- traverse resolveFunctionParameter functionParameters
       resolvedReturnType <- traverse resolveType returnType
@@ -534,19 +539,19 @@ resolveCanonicalSyntax
     moduleScopeId = MkScopeId 0
     moduleSymbolId = MkSymbolId 0
     moduleScopeInfo = MkScopeInfo moduleScopeId ModuleScope parentScopeId (SourceScope fileInfo) empty empty empty [<]
-    emptyScopeTables = MkScopeTables empty empty empty empty empty empty
+    emptyScopeTables = MkScopeTables moduleScopeId empty empty empty empty empty empty
     initialScopeTables =
     {
       nodeScopes := insert fileInfo.nodeId moduleScopeId emptyScopeTables.nodeScopes,
       scopes := insert moduleScopeId moduleScopeInfo emptyScopeTables.scopes,
       memberScopes := insert moduleSymbolId moduleScopeId emptyScopeTables.memberScopes
     } emptyScopeTables
-    (scopeTables, itemResults) = runState initialScopeTables (traverse resolveItem items)
+    resolutionResult = runStateT initialScopeTables (traverse resolveItem items)
     resolvedDocs = map resolveAstNode docs
   in
-    case traverse id itemResults of
+    case resolutionResult of
       Left error => Left error
-      Right resolvedItems =>
+      Right (scopeTables, resolvedItems) =>
         Right $
           MkResolvedModule
             moduleSymbolId

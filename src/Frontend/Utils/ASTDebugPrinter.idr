@@ -6,7 +6,7 @@ import Frontend.ASTData
 import Frontend.ASTPhases
 import Frontend.Token
 import Frontend.Syntax.AST
-import Frontend.Syntax.ASTPrettyPrinter
+import Frontend.Utils.ASTPrettyPrinter
 import Frontend.Syntax.Common
 import Frontend.Syntax.Name
 import Frontend.Syntax.Operator

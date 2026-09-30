@@ -11,8 +11,8 @@ import Frontend.Parser.Error
 import Frontend.Parser.Parser
 import Frontend.Source
 import Frontend.Syntax.AST
-import Frontend.Syntax.ASTDebugPrinter
-import Frontend.Syntax.ASTPrettyPrinter
+import Frontend.Utils.ASTDebugPrinter
+import Frontend.Utils.ASTPrettyPrinter
 import Frontend.Token
 
 %default total

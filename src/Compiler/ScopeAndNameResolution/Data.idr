@@ -2,6 +2,7 @@ module Compiler.ScopeAndNameResolution.Data
 
 import Frontend.ASTData
 import Frontend.ASTPhases
+import Frontend.Helper
 import Frontend.Source
 import Frontend.Syntax.AST
 import Frontend.Type
@@ -34,12 +35,27 @@ record LocalVariableInfo where
 public export
 record ScopeTables where
   constructor MkScopeTables
+  currentScope   : ScopeId
   nodeScopes     : SortedMap NodeId ScopeId                 -- lexical environment used to resolve a node
   symbols        : SortedMap SymbolId ResolvedSymbolInfo
   localVariables : SortedMap SymbolId LocalVariableInfo     -- Local/parameter declaration metadata, keyed by the corresponding SymbolId.
   references     : SortedMap SymbolId (SnocList SymbolReference)
   scopes         : SortedMap ScopeId ScopeInfo
   memberScopes   : SortedMap SymbolId ScopeId               -- I have Point’s SymbolId. Which ScopeId contains its members?
+
+public export
+(.nextSymbolId) : ScopeTables -> SymbolId
+(.nextSymbolId) tables =
+  case maxKey tables.symbols of
+       Nothing => MkSymbolId 0
+       Just (MkSymbolId n) => MkSymbolId (S n)
+
+public export
+(.nextScopeId) : ScopeTables-> ScopeId
+(.nextScopeId) tables =
+  case maxValue tables.nodeScopes of
+       Nothing => MkScopeId 0
+       Just (MkScopeId n) => MkScopeId (S n)
 
 public export
 record ResolvedModule where
