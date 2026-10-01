@@ -41,7 +41,7 @@ record ScopeTables where
   localVariables : SortedMap SymbolId LocalVariableInfo     -- Local/parameter declaration metadata, keyed by the corresponding SymbolId.
   references     : SortedMap SymbolId (SnocList SymbolReference)
   scopes         : SortedMap ScopeId ScopeInfo
-  memberScopes   : SortedMap SymbolId ScopeId               -- I have Point’s SymbolId. Which ScopeId contains its members?
+  memberScopes   : SortedMap SymbolId ScopeId               -- Given a symbol, which scope contains its members? Member example: const and functions inside a module
 
 public export
 (.nextSymbolId) : ScopeTables -> SymbolId

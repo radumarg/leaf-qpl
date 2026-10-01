@@ -167,15 +167,16 @@ record SymbolInfo (typeInfo : Type) where
 
 public export
 data ReferenceRole
-  = ValueReference       -- x in x + 1, f(x), or return x.
-  | AssignmentTarget     -- x in x = value.
-  | TypeReference        -- Point in a type annotation, cast, or impl target: let p: Point = Point { x: 1.0, y: 2.0 };
-  | QualifierReference   -- math in math::calculate.
-  | ImportReference      -- calculate in use math::calculate.
-  | ConstructorReference -- Point in Point { x: 1 }.
-  | PatternReference     -- Left in a matching pattern such as Result::Left(x).
-  | FieldReference       -- x in point.x, Point { x: value }, or a struct pattern.
-  | MethodReference      -- update in object.update().
+  = ValueReference            -- x in x + 1, f(x), or return x.
+  | AssignmentTarget          -- x in x = value.
+  | UncomputeAssignmentTarget -- x in x := value.
+  | TypeReference             -- Point in a type annotation, cast, or impl target: let p: Point = Point { x: 1.0, y: 2.0 };
+  | QualifierReference        -- math in math::calculate.
+  | ImportReference           -- calculate in use math::calculate.
+  | ConstructorReference      -- Point in Point { x: 1 }.
+  | PatternReference          -- Left in a matching pattern such as Result::Left(x).
+  | FieldReference            -- x in point.x, Point { x: value }, or a struct pattern.
+  | MethodReference           -- update in object.update().
 
 public export
 record SymbolReference where
@@ -191,7 +192,7 @@ record SymbolReference where
 -- Scope information
 -- Scope data live in a scope tree / resolver output, not directly on every AST node.
 --------------------------------------------------------------------------------
-
+ 
 public export
 data BindingKind     -- Describes how one particular name entered that scope.
   = DeclaredBinding  -- Declaration-provided, not imported; may expose an impl member outside its declaring scope.
@@ -217,11 +218,12 @@ public export
 data ScopeKind
   = ModuleScope       -- Top-level source module or a nested module namespace.
   | FunctionScope     -- Function or method parameters, including a self receiver; holds parameters, its body can have a child BlockScope.
-  | BlockScope        -- Local declarations inside a block. Includes if, while, loop, and quantum-control block.
+  | BlockScope        -- Local declarations inside a block. Includes function implementation, if, while, loop, and quantum-control block.
   | ForScope          -- Pattern bindings introduced by a for loop, visible in its body.
   | MatchArmScope     -- Pattern bindings belonging to one classical or quantum match arm.
   | ImplScope         -- Lexical context for resolving declarations inside an impl block.
-  | MemberScope       -- Members owned by a module, type, or struct-like enum variant.
+  | MemberScope       -- Scope holding an entity’s named members—such as a struct’s fields and methods or an enum’s variants,
+                      -- a module should reuse its existing ModuleScope for member lookup, does not need a separate member scope.
 
 public export
 record ScopeInfo where
