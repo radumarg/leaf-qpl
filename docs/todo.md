@@ -9,14 +9,13 @@ Higher priority:
 - Lean 4 code generation.
 - Uncomputation support.
 - `affine` & `scratch` qubits.
+- Quantum contracts.
 - Quantum Boolean data and Boolean coherent operations.
 - Signed/unsigned quantum integers and quantum arithmetic.
-- Arrays, tuples formed from the 3 above.
-- Quantum contracts.
+- Arrays, tuples formed from the 3 above must work.
 
 Other:
 
-- Rust style slices.
 - Quantum conditionals.
   - `qif`+`qelse` & `qmatch`.
   - `sif`+`selse` & `smatch`.
@@ -24,8 +23,9 @@ Other:
   - `enum`
   - `qenum`
   - `struct` + `impl` blocks.
+- Rust style slices.
 - Recursion.
 - Recursive data structures.
 - Documentation comments.
 - Classical subroutines.
-- Prelude math functions.
+
