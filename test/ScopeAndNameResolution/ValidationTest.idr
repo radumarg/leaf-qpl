@@ -56,6 +56,8 @@ validModule = MkResolvedModule
   (resolvedAstNode (info 0) WrittenCode (MkSourceFileNode [] []))
   (MkScopeTables
     (MkScopeId 0)
+    ModuleScope
+    (MkSymbolId 0)
     (fromList [(MkNodeId 0 0, MkScopeId 0), (MkNodeId 10 0, MkScopeId 1)])
     (fromList [(MkSymbolId 0, rootSymbol), (MkSymbolId 1, localSymbol)])
     (fromList [(MkSymbolId 1, MkLocalVariableInfo ImmutableVariable NotQubitLocal)])
@@ -158,7 +160,7 @@ runResolutionValidationTests = runTests $ Test.do
 
   test "the root module must be a module symbol" $
     diagnostics ({ rootModule := MkSymbolId 1 } validModule) `shouldBe`
-      [show (InvalidRootModule (MkSymbolId 1))]
+      [show (InvalidRootModule (MkSymbolId 1)), show (SelfDeclaringModule (MkSymbolId 0))]
 
   test "missing root scopes are reported" $
     diagnostics ({ rootScope := MkScopeId 99 } validModule) `shouldBe`
@@ -182,7 +184,7 @@ runResolutionValidationTests = runTests $ Test.do
 
   test "symbol declaring modules must be module symbols" $
     diagnostics (withSymbol 1 ({ declaringModule := MkSymbolId 1 } localSymbol) validModule) `shouldBe`
-      [show (InvalidDeclaringModule (MkSymbolId 1) (MkSymbolId 1))]
+      [show (SelfDeclaringModule (MkSymbolId 1)), show (InvalidDeclaringModule (MkSymbolId 1) (MkSymbolId 1))]
 
   test "scope table keys must agree with stored scope IDs" $
     diagnostics (withScope 1 ({ id := MkScopeId 99 } blockScope) validModule) `shouldBe`

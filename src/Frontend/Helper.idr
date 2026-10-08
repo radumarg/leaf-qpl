@@ -7,10 +7,7 @@ import Data.List
 
 public export
 maxKey : Ord k => SortedMap k v -> Maybe k
-maxKey m =
-  case keys m of
-    [] => Nothing
-    k :: ks => Just (foldl max k ks)
+maxKey m = map fst (rightMost m)   -- SortedMap keeps keys ordered, so the rightmost key is the largest
 
 public export
 maxValue : Ord v => SortedMap k v -> Maybe v

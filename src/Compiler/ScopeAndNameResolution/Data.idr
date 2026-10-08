@@ -35,13 +35,15 @@ record LocalVariableInfo where
 public export
 record ScopeTables where
   constructor MkScopeTables
-  currentScope   : ScopeId
-  nodeScopes     : SortedMap NodeId ScopeId                 -- lexical environment used to resolve a node
-  symbols        : SortedMap SymbolId ResolvedSymbolInfo
-  localVariables : SortedMap SymbolId LocalVariableInfo     -- Local/parameter declaration metadata, keyed by the corresponding SymbolId.
-  references     : SortedMap SymbolId (SnocList SymbolReference)
-  scopes         : SortedMap ScopeId ScopeInfo
-  memberScopes   : SortedMap SymbolId ScopeId               -- Given a symbol, which scope contains its members? Member example: const and functions inside a module
+  currentScope     : ScopeId                                  -- this field reflects the current scope while ScopeTables are being threaded through code using a State monad
+  currentScopeKind : ScopeKind
+  currentModule    : SymbolId                                 -- the module enclosing the current scope; threaded like currentScope
+  nodeScopes       : SortedMap NodeId ScopeId                 -- lexical environment used to resolve a node
+  symbols          : SortedMap SymbolId ResolvedSymbolInfo
+  localVariables   : SortedMap SymbolId LocalVariableInfo     -- Local/parameter declaration metadata, keyed by the corresponding SymbolId.
+  references       : SortedMap SymbolId (SnocList SymbolReference)
+  scopes           : SortedMap ScopeId ScopeInfo
+  memberScopes     : SortedMap SymbolId ScopeId               -- Given a symbol, which scope contains its members? Member example: const and functions inside a module
 
 public export
 (.nextSymbolId) : ScopeTables -> SymbolId
@@ -53,7 +55,7 @@ public export
 public export
 (.nextScopeId) : ScopeTables-> ScopeId
 (.nextScopeId) tables =
-  case maxValue tables.nodeScopes of
+  case maxKey tables.scopes of
        Nothing => MkScopeId 0
        Just (MkScopeId n) => MkScopeId (S n)
 

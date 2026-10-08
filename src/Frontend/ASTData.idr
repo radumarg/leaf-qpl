@@ -114,8 +114,10 @@ record AstInfo where
   span   : SourceSpan
 
 --------------------------------------------------------------------------------
--- Symbol information, symbol Id is saved in the AST tree under Name node
--- but comprehensive symbol info can be found in a scope tables.
+-- A symbol is a particular declared entity: a variable, parameter, function,
+-- type, module etc. Its identity is a SymbolId. Symbol information, symbol Id
+-- is saved in the AST tree under Name node but comprehensive symbol info can be
+-- found in scope tables.
 --------------------------------------------------------------------------------
 
 -- The declaration or binding category denoted by a SymbolId.
@@ -160,8 +162,9 @@ record SymbolInfo (typeInfo : Type) where
   symbolKind       : SymbolKind
   symbolType       : typeInfo
   declaredName     : String
-  declaringScope   : ScopeId
-  declaringModule  : SymbolId
+  declaringScope   : ScopeId      -- the root module has no enclosing scope and uses its own module scope
+  declaringModule  : SymbolId     -- the root module refers to itself; this self-reference marks the root,
+                                  -- so walks up the declaringModule chain stop when it reaches a fixed point
   visibility       : SymbolVisibility
   origin           : SymbolOrigin
 
@@ -169,7 +172,7 @@ public export
 data ReferenceRole
   = ValueReference            -- x in x + 1, f(x), or return x.
   | AssignmentTarget          -- x in x = value.
-  | UncomputeAssignmentTarget -- x in x := value.
+  | DeclarationReference      -- MAX in const MAX: i32 = 1, or calculate in fn calculate().
   | TypeReference             -- Point in a type annotation, cast, or impl target: let p: Point = Point { x: 1.0, y: 2.0 };
   | QualifierReference        -- math in math::calculate.
   | ImportReference           -- calculate in use math::calculate.

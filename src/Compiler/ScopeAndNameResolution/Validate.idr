@@ -31,6 +31,7 @@ data ResolutionInvariantError
   | MissingDeclaringScope SymbolId ScopeId
   | MissingDeclaringModule SymbolId SymbolId
   | InvalidDeclaringModule SymbolId SymbolId
+  | SelfDeclaringModule SymbolId
   | ScopeKeyMismatch ScopeId ScopeId
   | MissingParentScope ScopeId ScopeId
   | ScopeParentCycle ScopeId
@@ -75,6 +76,8 @@ Show ResolutionInvariantError where
     symbolLabel symbol ++ " has missing declaring module " ++ symbolLabel declaringModule
   show (InvalidDeclaringModule symbol declaringModule) =
     symbolLabel symbol ++ " has non-module declaring symbol " ++ symbolLabel declaringModule
+  show (SelfDeclaringModule symbol) =
+    symbolLabel symbol ++ " declares itself but is not the root module"
   show (ScopeKeyMismatch key stored) =
     "Scope table key " ++ scopeLabel key ++ " contains " ++ scopeLabel stored
   show (MissingParentScope scope parent) =
@@ -162,6 +165,8 @@ validateSymbol : ResolvedModule -> (SymbolId, ResolvedSymbolInfo) -> List Resolu
 validateSymbol resolved (key, symbol) =
   check (key == symbol.symbolId) (SymbolKeyMismatch key symbol.symbolId) ++
   check (hasKey symbol.declaringScope resolved.tables.scopes) (MissingDeclaringScope key symbol.declaringScope) ++
+  -- Only the root module may be its own declaring module; see SymbolInfo.
+  check (symbol.declaringModule /= key || key == resolved.rootModule) (SelfDeclaringModule key) ++
   case lookup symbol.declaringModule resolved.tables.symbols of
     Nothing => [MissingDeclaringModule key symbol.declaringModule]
     Just declaringModule =>
