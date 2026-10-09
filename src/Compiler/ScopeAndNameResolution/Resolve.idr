@@ -471,8 +471,7 @@ resolveFunctionBody (MkAstNode functionBodyAstInfo (MkProvenanceMetadata provena
       resolvedBlockStatement 
       resolvedFinalExpression
 
--- Adds a value-namespace declaration to the current scope: allocates its SymbolId,
--- records its SymbolInfo, binding and declaration-name occurrence.
+-- Adds a value-namespace declaration to the current scope.
 -- Fails with DuplicateDeclaration if the scope already declares the same name.
 declareValueSymbol : AstInfo -> SymbolKind -> SymbolVisibility -> CanonicalName -> StateT ScopeTables (Either ResolutionError) ()
 declareValueSymbol itemInfo symbolKind visibility (MkAstNode nameInfo _ (MkNameNode nameText)) = do
@@ -511,11 +510,16 @@ declareValueSymbol itemInfo symbolKind visibility (MkAstNode nameInfo _ (MkNameN
 declareItem : CanonicalItem -> StateT ScopeTables (Either ResolutionError) ()
 declareItem (MkAstNode itemInfo _ item) =
   case item of
+    ItemModule declaration => assert_total $ idris_crash "Resolve.idr: declareItem: ItemModule not implemented"
+    ItemUse declaration => assert_total $ idris_crash "Resolve.idr: declareItem: ItemUse not implemented"
     ItemConst (MkConstDeclarationNode _ constVisibility constName _ _) =>
       declareValueSymbol itemInfo SymbolConstant (symbolVisibility constVisibility) constName
+    ItemEnum declaration => assert_total $ idris_crash "Resolve.idr: declareItem: ItemEnum not implemented"
+    ItemQEnum declaration => assert_total $ idris_crash "Resolve.idr: declareItem: ItemQEnum not implemented"
+    ItemStruct declaration => assert_total $ idris_crash "Resolve.idr: declareItem: ItemStruct not implemented"
+    ItemImpl declaration => assert_total $ idris_crash "Resolve.idr: declareItem: ItemImpl not implemented"
     ItemFunction (MkFunctionDeclarationNode _ _ functionVisibility _ _ functionName _ _ _ _ _) =>
       declareValueSymbol itemInfo SymbolFunction (symbolVisibility functionVisibility) functionName
-    _ => pure () -- Other item kinds are not implemented yet; resolveItem reports them.
 
 -- Resolves the name of an item that declareItem has already declared in the
 -- current scope to that declaration's SymbolId.
@@ -573,10 +577,28 @@ resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) = do
           contractClauses
           functionBody) = do
       resolvedFunctionName <- resolveDeclaredValueName functionName
+      scopeTables <- get
+      let callSiteScopeId = scopeTables.currentScope
+      let callSiteScopeKind = scopeTables.currentScopeKind
+      let functionDeclarationBlockScopeId = scopeTables.nextScopeId
+      let functionDeclarationBlockScopeInfo = 
+        MkScopeInfo functionDeclarationBlockScopeId FunctionScope (Just callSiteScopeId) (SourceScope itemInfo) empty empty empty [<]
+      let functionBodyScopeTables : ScopeTables = 
+          { currentScope := functionDeclarationBlockScopeId,
+            currentScopeKind := FunctionScope,
+            scopes := insert functionDeclarationBlockScopeId functionDeclarationBlockScopeInfo scopeTables.scopes
+          } scopeTables
+      put functionBodyScopeTables
       resolvedParameters <- traverse resolveFunctionParameter functionParameters
       resolvedReturnType <- traverse resolveType returnType
       resolvedContracts <- traverse resolveContractClause contractClauses
       resolvedBody <- resolveFunctionBody functionBody
+      scopeTables <- get
+      let scopeTables : ScopeTables = 
+          { currentScope := callSiteScopeId,
+            currentScopeKind := callSiteScopeKind
+          } scopeTables 
+      put scopeTables
       pure $ MkFunctionDeclarationNode
         (map resolveAstNode functionDocs)
         (map resolveAttribute functionAttributes)
@@ -590,16 +612,8 @@ resolveItem (MkAstNode itemInfo (MkProvenanceMetadata provenance) item) = do
         resolvedContracts
         resolvedBody
 
-
--- creates a scope for modules, functions, blocks and similar constructs;
--- records declarations in symbol tables;
--- assigns a unique SymbolId to each declared entity;
--- resolves variable, function, type and module names;
--- handles shadowing;
--- checks visibility and imports;
--- detects duplicate declarations;
--- reports unknown or ambiguous names.
-
+||| Perform symbol and scope resolution over the canonical AST of
+||| soure a file starting from a scope corresponding to root module.
 export
 resolveCanonicalSyntax : CanonicalSourceFile -> Either ResolutionError ResolvedModule
 resolveCanonicalSyntax (MkAstNode fileInfo provenance (MkSourceFileNode docs items)) = do
@@ -615,10 +629,8 @@ resolveCanonicalSyntax (MkAstNode fileInfo provenance (MkSourceFileNode docs ite
     moduleScopeId = MkScopeId 0
     moduleSymbolId = MkSymbolId 0
     moduleScopeInfo = MkScopeInfo moduleScopeId ModuleScope Nothing (SourceScope fileInfo) empty empty empty [<]
-    -- The root module has no enclosing scope or module, so it declares itself
-    -- in its own scope and module; see SymbolInfo.declaringModule.
+    -- The root module has no enclosing scope or module, so it declares itself in its own scope and module
     moduleSymbolInfo = MkSymbolInfo moduleSymbolId SymbolModule () "" moduleScopeId moduleSymbolId PublicVisibility (SourceSymbol fileInfo)
-    initialScopeTables : ScopeTables
     initialScopeTables =
       MkScopeTables
         moduleScopeId
